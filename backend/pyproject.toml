@@ -1,0 +1,26 @@
+[project]
+name = "coral-incident-agent-backend"
+version = "0.1.0"
+description = "Backend service for production incident intelligence workflows."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic-settings",
+  "httpx",
+  "sqlalchemy",
+  "alembic",
+  "psycopg[binary]",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "anyio",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

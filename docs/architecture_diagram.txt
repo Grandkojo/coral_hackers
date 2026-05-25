@@ -1,0 +1,91 @@
+                        ┌─────────────────────┐
+                        │ External Systems    │
+                        │                     │
+                        │ GitHub              │
+                        │ Vercel              │
+                        │ Sentry              │
+                        │ Slack               │
+                        └─────────┬───────────┘
+                                  │
+                                  ▼
+                     ┌────────────────────────┐
+                     │ Coral Runtime          │
+                     │ SQL over APIs          │
+                     │ Cross-source JOINs     │
+                     └─────────┬──────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Incident Agent Service                    │
+│                    (Node.js + TypeScript)                  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Trigger Layer                                        │   │
+│  │ • Dashboard API                                      │   │
+│  │ • Slack Slash Command                                │   │
+│  │ • Webhook Receiver                                   │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│                         ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Investigation Orchestrator                           │   │
+│  │ Stateful loop controller                             │   │
+│  │ • investigation_id                                   │   │
+│  │ • iteration count                                    │   │
+│  │ • evidence memory                                    │   │
+│  │ • hypothesis tracking                                │   │
+│  └───────────────┬──────────────────────────────────────┘   │
+│                  │                                          │
+│     ┌────────────┴─────────────┐                            │
+│     ▼                          ▼                            │
+│ ┌──────────────┐      ┌────────────────┐                   │
+│ │ Planner LLM  │      │ Judge LLM      │                   │
+│ │ "what to ask"│      │ "is it enough?"│                   │
+│ └──────┬───────┘      └────────┬───────┘                   │
+│        │                       │                           │
+│        ▼                       ▼                           │
+│ ┌──────────────────────────────────────────────────────┐   │
+│ │ Query Executor                                       │   │
+│ │ • validates SQL                                      │   │
+│ │ • runs Coral queries                                 │   │
+│ │ • normalizes rows                                    │   │
+│ └──────────────────────────────────────────────────────┘   │
+│                         │                                   │
+│                         ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Evidence Store                                       │   │
+│  │ PostgreSQL / SQLite                                  │   │
+│  │ • query history                                      │   │
+│  │ • evidence rows                                      │   │
+│  │ • confidence scores                                  │   │
+│  │ • cited claims                                       │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                         │                                   │
+│                         ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Escalation Engine                                    │   │
+│  │ Rules + confidence gates                             │   │
+│  │ • sufficient evidence?                               │   │
+│  │ • conflicting hypotheses?                            │   │
+│  │ • missing ownership?                                 │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                         │                                   │
+│                         ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Severity + Remediation Gate                          │   │
+│  │ (after root cause / error is identified)             │   │
+│  │ • severity <= 0.7 → autonomous fix workflow          │   │
+│  │ • severity > 0.7  → human-agent paired workflow      │   │
+│  │   - ask permission before risky actions              │   │
+│  │   - allow human to take over tasks directly          │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                         │                                   │
+│                         ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Report Generator                                     │   │
+│  │ Markdown + structured JSON                           │   │
+│  │ • timeline                                            │   │
+│  │ • suspects                                            │   │
+│  │ • citations                                            │   │
+│  │ • unresolved gaps                                      │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
