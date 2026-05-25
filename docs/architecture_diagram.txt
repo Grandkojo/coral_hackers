@@ -9,15 +9,16 @@
                                   │
                                   ▼
                      ┌────────────────────────┐
-                     │ Coral Runtime          │
+                     │ Coral (query layer)    │
                      │ SQL over APIs          │
                      │ Cross-source JOINs     │
+                     │ CLI or MCP · local     │
                      └─────────┬──────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  Incident Agent Service                    │
-│                    (Node.js + TypeScript)                  │
+│                    (Python + FastAPI)                      │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ Trigger Layer                                        │   │

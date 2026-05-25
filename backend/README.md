@@ -1,6 +1,7 @@
 # Coral Incident Intelligence Agent (Backend)
 
-FastAPI service implementing the architecture in `docs/architecture_diagram.txt`.
+FastAPI service for [Pirates of the Coral-bean](https://www.wemakedevs.org/hackathons/coral) (Track 1 — Enterprise Agent).  
+Implements the architecture in `docs/architecture_diagram.txt`.
 
 ## Quick start
 

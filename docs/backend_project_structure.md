@@ -1,8 +1,8 @@
 # Backend Project Structure (FastAPI)
 
-This document explains the initial backend scaffold for the **Production Incident Intelligence Agent**.
+This document explains the initial backend scaffold for the **Production Incident Intelligence Agent** — our [Track 1 Enterprise Agent](https://www.wemakedevs.org/hackathons/coral) for **Pirates of the Coral-bean**.
 
-It maps directly to `docs/architecture_diagram.txt`.
+It maps directly to `docs/architecture_diagram.txt`. Hackathon links and track notes: `docs/hackathon.md`.
 
 ## Folder Tree
 
