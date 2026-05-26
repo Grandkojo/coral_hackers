@@ -4,33 +4,30 @@ export type BadgeVariant =
   | 'resolved'
   | 'autonomous'
   | 'human-paired'
-  | 'danger'
+  | 'critical'
 
 interface StatusBadgeProps {
   label: string
   variant: BadgeVariant
 }
 
-const BADGE_STYLES: Record<BadgeVariant, { border: string; text: string; dot: string; pulse: string }> = {
-  online:        { border: 'var(--color-accent)',  text: 'var(--color-accent)',  dot: 'var(--color-accent)',  pulse: 'pulse-green' },
-  investigating: { border: 'var(--color-warning)', text: 'var(--color-warning)', dot: 'var(--color-warning)', pulse: 'pulse-amber' },
-  resolved:      { border: 'var(--color-cyan)',    text: 'var(--color-cyan)',    dot: 'var(--color-cyan)',    pulse: 'pulse-green' },
-  autonomous:    { border: 'var(--color-accent)',  text: 'var(--color-accent)',  dot: 'var(--color-accent)',  pulse: 'pulse-green' },
-  'human-paired':{ border: 'var(--color-warning)', text: 'var(--color-warning)', dot: 'var(--color-warning)', pulse: 'pulse-amber' },
-  danger:        { border: 'var(--color-danger)',  text: 'var(--color-danger)',  dot: 'var(--color-danger)',  pulse: 'pulse-amber' },
+const STYLES: Record<BadgeVariant, { color: string; dot: string; pulse: string }> = {
+  online:         { color: 'var(--green)',  dot: 'var(--green)',  pulse: 'pulse-green' },
+  investigating:  { color: 'var(--amber)',  dot: 'var(--amber)',  pulse: 'pulse-amber' },
+  resolved:       { color: 'var(--blue)',   dot: 'var(--blue)',   pulse: 'pulse-green' },
+  autonomous:     { color: 'var(--green)',  dot: 'var(--green)',  pulse: 'pulse-green' },
+  'human-paired': { color: 'var(--amber)',  dot: 'var(--amber)',  pulse: 'pulse-amber' },
+  critical:       { color: 'var(--red)',    dot: 'var(--red)',    pulse: 'pulse-amber' },
 }
 
+// Inline status indicator with monospace label
 export default function StatusBadge({ label, variant }: StatusBadgeProps) {
-  const s = BADGE_STYLES[variant]
+  const s = STYLES[variant]
   return (
     <span
-      className="inline-flex items-center gap-1.5 border px-2 py-0.5 font-mono text-[0.58rem] font-semibold uppercase tracking-widest"
-      style={{ borderColor: s.border, color: s.text }}
+      className="badge"
+      style={{ color: s.color, borderColor: s.color, background: 'transparent' }}
     >
-      <span
-        className={`status-dot ${s.pulse}`}
-        style={{ backgroundColor: s.dot }}
-      />
       {label}
     </span>
   )

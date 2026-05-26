@@ -5,6 +5,7 @@ import InvestigationForm from './components/InvestigationForm'
 import InvestigationPanel from './components/InvestigationPanel'
 import ReportPanel from './components/ReportPanel'
 import SourceBadges from './components/SourceBadges'
+import ASCIIText from './components/ASCIIText'
 import { MOCK_REPORT_BASE } from './data/mockInvestigation'
 
 export default function App() {
@@ -13,7 +14,7 @@ export default function App() {
   const [report, setReport] = useState<ReportResponse | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Starts an investigation from the submitted trigger request; simulates orchestration iterations until real API is wired
+  // Starts an investigation from the submitted trigger; simulates orchestration iterations until real API is wired
   function handleSubmit(req: TriggerRequest) {
     const id = req.incident_id ?? `inv_${Math.random().toString(36).slice(2, 10)}`
 
@@ -21,15 +22,15 @@ export default function App() {
     setPhase('investigating')
     setInvestigationState({
       investigation_id: id,
-      iteration_count: 1,
-      evidence_rows: [],
-      hypotheses: [`Analyzing: "${req.query}" — querying ${req.source} sources...`],
+      iteration_count:  1,
+      evidence_rows:    [],
+      hypotheses:       [`Analyzing: "${req.query}" — querying ${req.source} sources...`],
       confidence_score: 0.1,
-      root_cause: null,
+      root_cause:       null,
     })
     setIsSubmitting(false)
 
-    // Simulate iteration 2: evidence collected, hypotheses narrowed
+    // Iteration 2 — evidence collected, hypotheses narrowed
     setTimeout(() => {
       setInvestigationState((prev) =>
         prev
@@ -37,13 +38,13 @@ export default function App() {
               ...prev,
               iteration_count: 2,
               evidence_rows: [
-                { source: 'github', type: 'pull_request', id: 'PR#234' },
+                { source: 'github', type: 'pull_request', id: 'PR#234'      },
                 { source: 'sentry', type: 'fatal_error',  id: 'SENTRY-4521' },
-                { source: 'vercel', type: 'deployment',   id: 'dpl_9e2xk'  },
+                { source: 'vercel', type: 'deployment',   id: 'dpl_9e2xk'   },
               ],
               hypotheses: [
                 'Auth service regression in PR #234 — token validation logic changed',
-                'Database connection pool exhausted following deploy dpl_9e2xk',
+                'DB connection pool exhausted following deploy dpl_9e2xk',
               ],
               confidence_score: 0.67,
             }
@@ -51,14 +52,14 @@ export default function App() {
       )
     }, 2200)
 
-    // Simulate judge declaring sufficient confidence and emitting final report
+    // Judge declares sufficient confidence — emit final report
     setTimeout(() => {
       setReport({ ...MOCK_REPORT_BASE, investigation_id: id })
       setPhase('complete')
     }, 4800)
   }
 
-  // Resets the app to idle so the user can start a new investigation
+  // Resets back to idle so the user can start a new investigation
   function handleReset() {
     setPhase('idle')
     setInvestigationState(null)
@@ -66,39 +67,52 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col grid-bg">
-      <Header phase={phase} />
+    <div className="flex min-h-screen flex-col" style={{ background: 'var(--bg)' }}>
+      <Header />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-12">
         {phase === 'idle' ? (
-          <div className="space-y-8 fade-in">
-            <div className="text-center space-y-5">
-              <div className="pixel-card-accent inline-block px-8 py-5">
-                <h1
-                  className="font-pixel text-[var(--color-accent)]"
-                  style={{ fontSize: '1rem', lineHeight: 2 }}
-                >
-                  INVINCIBLE
-                </h1>
-                <p className="font-mono text-[0.6rem] text-[var(--color-muted)] mt-1 tracking-widest">
-                  PRODUCTION INCIDENT INTELLIGENCE
-                </p>
-              </div>
-              <p className="font-display text-sm text-[var(--color-muted)] tracking-wide max-w-md mx-auto">
-                Cross-source incident investigation. One query. One report.
+          <div className="space-y-10 fade-up">
+            {/* Hero */}
+            <section className="flex flex-col items-center text-center gap-6">
+              <p
+                className="font-mono text-[0.6rem] tracking-widest"
+                style={{ color: 'var(--muted)' }}
+              >
+                // production incident intelligence
               </p>
-              <SourceBadges />
-            </div>
 
+              <div className="relative w-full" style={{ height: '280px' }}>
+                <ASCIIText text="INVINCIBLE" enableWaves asciiFontSize={8} />
+              </div>
+
+              <p
+                className="font-body text-base max-w-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                Cross-source incident investigation.<br />One query. One report. Optionally, one fix.
+              </p>
+
+              <SourceBadges />
+            </section>
+
+            {/* Investigation form */}
             <InvestigationForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
 
-            <div className="pixel-card">
-              <div className="border-b-2 border-[var(--color-edge)] px-5 py-2.5">
-                <span className="section-label">EXAMPLE CORAL QUERY</span>
+            {/* Example Coral query */}
+            <div className="card">
+              <div className="card-header">
+                <span className="label">Example Coral query</span>
+                <span className="font-mono text-[0.56rem]" style={{ color: 'var(--muted)' }}>
+                  cross-source JOIN — no ETL
+                </span>
               </div>
               <div className="p-5">
-                <pre className="font-mono text-[0.65rem] text-[var(--color-muted)] leading-loose overflow-x-auto">
-                  {`SELECT g.title, s.error_message, sl.text\nFROM   github.pull_requests g\nJOIN   sentry.issues s\n         ON s.first_seen >= g.merged_at\nJOIN   slack.messages sl\n         ON sl.channel = '#incidents'\nWHERE  s.level = 'fatal'\nORDER  BY s.first_seen DESC;`}
+                <pre
+                  className="font-mono text-[0.68rem] leading-loose overflow-x-auto"
+                  style={{ color: 'var(--ink-2)' }}
+                >
+                  {`SELECT  g.title, s.error_message, sl.text\nFROM    github.pull_requests g\nJOIN    sentry.issues s\n          ON s.first_seen >= g.merged_at\nJOIN    slack.messages sl\n          ON sl.channel = '#incidents'\nWHERE   s.level = 'fatal'\nORDER BY s.first_seen DESC;`}
                 </pre>
               </div>
             </div>
@@ -110,8 +124,11 @@ export default function App() {
         ) : null}
       </main>
 
-      <footer className="border-t-2 border-[var(--color-edge)] px-6 py-3 text-center">
-        <span className="font-mono text-[0.55rem] text-[var(--color-muted)]">
+      <footer
+        className="border-t px-6 py-4 text-center"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <span className="font-mono text-[0.55rem]" style={{ color: 'var(--muted)' }}>
           INVINCIBLE v0.1.0-alpha · Pirates of the Coral-bean · WeMakeDevs Coral Hackathon 2026
         </span>
       </footer>

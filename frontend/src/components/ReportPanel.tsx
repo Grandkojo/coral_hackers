@@ -9,80 +9,95 @@ interface ReportPanelProps {
   onReset: () => void
 }
 
-function getRemediationVariant(mode: string): BadgeVariant {
-  return mode === 'autonomous_fix' ? 'autonomous' : 'human-paired'
+function remediationBadge(mode: string): { variant: BadgeVariant; label: string } {
+  return mode === 'autonomous_fix'
+    ? { variant: 'autonomous',    label: 'Autonomous fix'  }
+    : { variant: 'human-paired',  label: 'Human approval req' }
 }
 
-function getRemediationLabel(mode: string): string {
-  return mode === 'autonomous_fix' ? 'AUTONOMOUS FIX' : 'HUMAN APPROVAL REQ'
-}
-
+// Final report view — maps to ReportResponse backend schema
 export default function ReportPanel({ report, onReset }: ReportPanelProps) {
-  const remediationVariant = getRemediationVariant(report.remediation_mode)
-  const remediationLabel = getRemediationLabel(report.remediation_mode)
+  const badge = remediationBadge(report.remediation_mode)
 
   return (
-    <div className="space-y-4 fade-in">
+    <div className="space-y-5 fade-up">
       <PixelCard
-        title="INCIDENT REPORT"
-        titleRight={<StatusBadge label={remediationLabel} variant={remediationVariant} />}
+        title="Incident Report"
+        titleRight={<StatusBadge label={badge.label} variant={badge.variant} />}
       >
-        {/* ID + severity */}
-        <div className="mb-1 flex items-center gap-2">
-          <span className="section-label">SESSION ID</span>
-          <span className="data-val text-[0.7rem]">{report.investigation_id}</span>
+        {/* Session ID */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="label">Session</span>
+          <span className="data-val font-mono text-[0.68rem]">{report.investigation_id}</span>
         </div>
-        <div className="mb-5">
+
+        {/* Severity */}
+        <div className="mb-6">
           <SeverityBar score={report.severity_score} />
         </div>
 
-        <hr className="pixel-hr mb-5" />
+        <hr className="divider mb-6" />
 
-        {/* Three-column data grid */}
-        <div className="grid gap-5 md:grid-cols-3 mb-5">
-          {/* Timeline */}
+        {/* Three-column evidence grid */}
+        <div className="grid gap-6 md:grid-cols-3 mb-6">
           <div>
-            <div className="section-label mb-2.5 text-[var(--color-cyan)]">TIMELINE</div>
-            <ul className="space-y-2">
+            <span
+              className="label block mb-3"
+              style={{ color: 'var(--blue)' }}
+            >
+              Timeline
+            </span>
+            <ul className="space-y-2.5">
               {report.timeline.map((entry, i) => (
                 <li
                   key={i}
-                  className="flex gap-2 font-mono text-[0.62rem] text-[var(--color-ink)] leading-relaxed"
+                  className="flex gap-2 font-mono text-[0.64rem] leading-relaxed"
+                  style={{ animation: `slide-in-row 280ms ${i * 60}ms ease-out both` }}
                 >
-                  <span className="text-[var(--color-cyan)] flex-shrink-0">›</span>
-                  <span>{entry}</span>
+                  <span style={{ color: 'var(--blue)', flexShrink: 0 }}>›</span>
+                  <span style={{ color: 'var(--ink-2)' }}>{entry}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Suspects */}
           <div>
-            <div className="section-label mb-2.5 text-[var(--color-danger)]">SUSPECTS</div>
-            <ul className="space-y-2">
+            <span
+              className="label block mb-3"
+              style={{ color: 'var(--red)' }}
+            >
+              Suspects
+            </span>
+            <ul className="space-y-2.5">
               {report.suspects.map((s, i) => (
                 <li
                   key={i}
-                  className="flex gap-2 font-mono text-[0.62rem] text-[var(--color-ink)] leading-relaxed"
+                  className="flex gap-2 font-mono text-[0.64rem] leading-relaxed"
+                  style={{ animation: `slide-in-row 280ms ${i * 60 + 40}ms ease-out both` }}
                 >
-                  <span className="text-[var(--color-danger)] flex-shrink-0">!</span>
-                  <span>{s}</span>
+                  <span style={{ color: 'var(--red)', flexShrink: 0 }}>!</span>
+                  <span style={{ color: 'var(--ink-2)' }}>{s}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Citations */}
           <div>
-            <div className="section-label mb-2.5 text-[var(--color-accent)]">CITATIONS</div>
-            <ul className="space-y-2">
+            <span
+              className="label block mb-3"
+              style={{ color: 'var(--accent)' }}
+            >
+              Citations
+            </span>
+            <ul className="space-y-2.5">
               {report.citations.map((c, i) => (
                 <li
                   key={i}
-                  className="flex gap-2 font-mono text-[0.62rem] leading-relaxed"
+                  className="flex gap-2 font-mono text-[0.64rem] leading-relaxed"
+                  style={{ animation: `slide-in-row 280ms ${i * 60 + 80}ms ease-out both` }}
                 >
-                  <span className="text-[var(--color-accent)] flex-shrink-0">#</span>
-                  <span className="text-[var(--color-accent)]">{c}</span>
+                  <span style={{ color: 'var(--accent)', flexShrink: 0 }}>#</span>
+                  <span style={{ color: 'var(--accent)' }}>{c}</span>
                 </li>
               ))}
             </ul>
@@ -92,33 +107,34 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
         {/* Unresolved gaps */}
         {report.unresolved_gaps.length > 0 ? (
           <div
-            className="border-2 p-3 mb-5 space-y-1"
+            className="p-4 mb-6 space-y-2"
             style={{
-              borderColor: 'var(--color-warning)',
-              background: 'rgba(255,170,0,0.04)',
+              border: '1px solid var(--amber-dim)',
+              background: 'var(--amber-dim)',
+              borderColor: 'var(--amber)',
             }}
           >
-            <div className="section-label mb-1.5" style={{ color: 'var(--color-warning)' }}>
-              UNRESOLVED GAPS
-            </div>
+            <span className="label block" style={{ color: 'var(--amber)' }}>
+              Unresolved gaps
+            </span>
             {report.unresolved_gaps.map((gap, i) => (
-              <p key={i} className="font-mono text-[0.62rem]" style={{ color: 'var(--color-warning)' }}>
-                ⚠ {gap}
+              <p key={i} className="font-mono text-[0.64rem]" style={{ color: 'var(--amber)' }}>
+                — {gap}
               </p>
             ))}
           </div>
         ) : null}
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
-          <button className="pixel-btn-ghost" onClick={onReset}>
-            + NEW INVESTIGATION
+        {/* Action row */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <button className="btn btn-ghost" onClick={onReset}>
+            New investigation
           </button>
           {report.remediation_mode === 'autonomous_fix' ? (
-            <button className="pixel-btn">APPLY AUTONOMOUS FIX</button>
+            <button className="btn btn-primary">Apply autonomous fix</button>
           ) : (
-            <button className="pixel-btn" disabled>
-              AWAITING HUMAN APPROVAL
+            <button className="btn btn-primary" disabled>
+              Awaiting human approval
             </button>
           )}
         </div>

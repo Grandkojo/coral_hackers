@@ -1,40 +1,30 @@
-import type { Phase } from '../types/index'
-import StatusBadge from './StatusBadge'
-import type { BadgeVariant } from './StatusBadge'
+import ThemeToggle from "./ThemeToggle";
 
-const PHASE_STATUS: Record<Phase, { label: string; variant: BadgeVariant }> = {
-  idle:          { label: 'ONLINE',         variant: 'online' },
-  investigating: { label: 'INVESTIGATING',  variant: 'investigating' },
-  complete:      { label: 'RESOLVED',       variant: 'resolved' },
-}
-
-interface HeaderProps {
-  phase: Phase
-}
-
-export default function Header({ phase }: HeaderProps) {
-  const status = PHASE_STATUS[phase]
+// Top navigation bar — theme state is read internally via useTheme inside ThemeToggle
+export default function Header() {
   return (
-    <header className="border-b-2 border-[var(--color-edge)] bg-[var(--color-surface)] px-6 py-3">
-      <div className="mx-auto flex max-w-4xl items-center justify-between">
+    <header
+      className="border-b px-6 py-3.5"
+      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+    >
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
         <div className="flex items-center gap-5">
           <span
-            className="font-pixel text-[0.7rem] text-[var(--color-accent)]"
-            style={{ lineHeight: 1.6 }}
+            className="font-pixel"
+            style={{ fontSize: "0.55rem", color: "var(--accent)", lineHeight: 1.8 }}
           >
             INVINCIBLE
           </span>
-          <span className="hidden font-mono text-[0.6rem] text-[var(--color-muted)] md:block">
-            {'// PRODUCTION INCIDENT INTELLIGENCE'}
+          <span
+            className="hidden font-mono text-[0.58rem] sm:block"
+            style={{ color: "var(--muted)" }}
+          >
+            // incident intelligence
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="hidden font-mono text-[0.55rem] text-[var(--color-muted)] sm:block">
-            v0.1.0-alpha
-          </span>
-          <StatusBadge label={status.label} variant={status.variant} />
-        </div>
+
+        <ThemeToggle />
       </div>
     </header>
-  )
+  );
 }
