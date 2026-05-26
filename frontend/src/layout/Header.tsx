@@ -1,4 +1,4 @@
-import ThemeToggle from "./ThemeToggle";
+import ThemeToggle from "../components/ThemeToggle";
 
 // Top navigation bar — theme state is read internally via useTheme inside ThemeToggle
 export default function Header() {
