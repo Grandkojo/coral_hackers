@@ -7,7 +7,7 @@ export default function Header() {
       className="border-b px-6 py-3.5"
       style={{ borderColor: "var(--border)", background: "var(--surface)" }}
     >
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div className="flex items-center gap-5">
           <span
             className="font-pixel"

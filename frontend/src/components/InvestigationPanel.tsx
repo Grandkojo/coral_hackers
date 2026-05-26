@@ -5,15 +5,15 @@ interface InvestigationPanelProps {
   state: InvestigationState
 }
 
-function getConfidenceMeta(score: number): { color: string; label: string } {
-  if (score >= 0.7) return { color: 'var(--red)',   label: 'High confidence' }
-  if (score >= 0.4) return { color: 'var(--amber)', label: 'Building...'     }
-  return              { color: 'var(--muted)', label: 'Collecting evidence' }
+function getConfidenceMeta(score: number): { color: string, label: string } {
+  if (score >= 0.7) return { color: 'var(--red)', label: 'High confidence' }
+  if (score >= 0.4) return { color: 'var(--amber)', label: 'Building...' }
+  return { color: 'var(--muted)', label: 'Collecting evidence' }
 }
 
 // Live view of the orchestration loop state — maps to InvestigationState backend schema
 export default function InvestigationPanel({ state }: InvestigationPanelProps) {
-  const pct  = Math.round(state.confidence_score * 100)
+  const pct = Math.round(state.confidence_score * 100)
   const meta = getConfidenceMeta(state.confidence_score)
 
   return (

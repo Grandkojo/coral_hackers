@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FiChevronDown } from 'react-icons/fi'
 import type { TriggerRequest } from '../types/index'
 
 interface InvestigationFormProps {
@@ -10,9 +11,9 @@ const SOURCES = ['dashboard', 'slack', 'webhook'] as const
 
 // Form for triggering a new investigation; maps 1:1 to the TriggerRequest backend schema
 export default function InvestigationForm({ onSubmit, isSubmitting }: InvestigationFormProps) {
-  const [query,      setQuery]      = useState('')
+  const [query, setQuery] = useState('')
   const [incidentId, setIncidentId] = useState('')
-  const [source,     setSource]     = useState('dashboard')
+  const [source, setSource] = useState('dashboard')
 
   const isValid = query.trim().length > 0
 
@@ -57,16 +58,23 @@ export default function InvestigationForm({ onSubmit, isSubmitting }: Investigat
 
           <div className="space-y-2">
             <label className="label block">Source</label>
-            <select
-              className="field-select"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              disabled={isSubmitting}
-            >
-              {SOURCES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                className="field-select"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                disabled={isSubmitting}
+              >
+                {SOURCES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <FiChevronDown
+                size={12}
+                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--muted)' }}
+              />
+            </div>
           </div>
         </div>
 

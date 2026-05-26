@@ -8,12 +8,15 @@ import ReportPanel from './components/ReportPanel'
 import SourceBadges from './components/SourceBadges'
 import ASCIIText from './components/ASCIIText'
 import { MOCK_REPORT_BASE } from './data/mockInvestigation'
+import { useHeroFontSize } from './hooks/useFontSize'
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [investigationState, setInvestigationState] = useState<InvestigationState | null>(null)
   const [report, setReport] = useState<ReportResponse | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const heroFontSize = useHeroFontSize()
 
   // Starts an investigation from the submitted trigger; simulates orchestration iterations until real API is wired
   function handleSubmit(req: TriggerRequest) {
@@ -72,7 +75,7 @@ export default function App() {
       <Header />
 
       <main className="flex-1">
-        <div className="mx-auto max-w-5xl px-5 pt-14 mb-14">
+        <div className="mx-auto max-w-6xl px-5 pt-14 mb-14">
         {phase === 'idle' ? (
             <div className="fade-up flex flex-col gap-16">
               {/* Hero */}
@@ -84,8 +87,11 @@ export default function App() {
                   // production incident intelligence
                 </p>
 
-                <div className="relative w-full" style={{ height: '320px' }}>
-                  <ASCIIText text="INVINCIBLE" enableWaves asciiFontSize={6} textFontSize={300} planeBaseHeight={10} />
+                <div
+                  className="relative w-full"
+                  style={{ height: heroFontSize < 150 ? '200px' : heroFontSize < 250 ? '260px' : '320px' }}
+                >
+                  <ASCIIText text="INVINCIBLE" enableWaves asciiFontSize={6} textFontSize={heroFontSize} planeBaseHeight={10} />
                 </div>
 
                 <p

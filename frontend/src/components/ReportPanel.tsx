@@ -9,10 +9,10 @@ interface ReportPanelProps {
   onReset: () => void
 }
 
-function remediationBadge(mode: string): { variant: BadgeVariant; label: string } {
+function remediationBadge(mode: string): { variant: BadgeVariant, label: string } {
   return mode === 'autonomous_fix'
-    ? { variant: 'autonomous',    label: 'Autonomous fix'  }
-    : { variant: 'human-paired',  label: 'Human approval req' }
+    ? { variant: 'autonomous', label: 'Autonomous fix' }
+    : { variant: 'human-paired', label: 'Human approval req' }
 }
 
 // Final report view — maps to ReportResponse backend schema
