@@ -1,1 +1,295 @@
 @import "tailwindcss";
+
+@theme {
+  --font-pixel: "Press Start 2P", monospace;
+  --font-display: "Orbitron", sans-serif;
+  --font-mono: "Share Tech Mono", monospace;
+
+  --color-bg: #080c16;
+  --color-surface: #0d1420;
+  --color-surface-2: #111b2e;
+  --color-edge: #1e3050;
+  --color-accent: #00ff88;
+  --color-accent-muted: #00aa5a;
+  --color-cyan: #00d4ff;
+  --color-danger: #ff4466;
+  --color-warning: #ffaa00;
+  --color-ink: #dde8ff;
+  --color-muted: #4a6080;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+}
+
+/* Scanline CRT overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Grid background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0, 255, 136, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 136, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Pixel cards */
+.pixel-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-edge);
+  box-shadow: 4px 4px 0px #000;
+}
+
+.pixel-card-accent {
+  background: var(--color-surface);
+  border: 2px solid var(--color-accent);
+  box-shadow: 4px 4px 0px var(--color-accent-muted);
+}
+
+.pixel-card-danger {
+  background: var(--color-surface);
+  border: 2px solid var(--color-danger);
+  box-shadow: 4px 4px 0px rgba(255, 68, 102, 0.4);
+}
+
+/* Pixel button */
+.pixel-btn {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.75rem 1.5rem;
+  color: var(--color-bg);
+  background-color: var(--color-accent);
+  border: 2px solid var(--color-accent);
+  box-shadow: 4px 4px 0px var(--color-accent-muted);
+  cursor: pointer;
+  transition: transform 80ms, box-shadow 80ms;
+}
+
+.pixel-btn:hover:not(:disabled) {
+  box-shadow: 6px 6px 0px var(--color-accent-muted);
+}
+
+.pixel-btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px var(--color-accent-muted);
+}
+
+.pixel-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pixel-btn-ghost {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.7rem 1.25rem;
+  color: var(--color-accent);
+  background: transparent;
+  border: 2px solid var(--color-accent);
+  box-shadow: 4px 4px 0px var(--color-accent-muted);
+  cursor: pointer;
+  transition: transform 80ms, box-shadow 80ms, background 80ms;
+}
+
+.pixel-btn-ghost:hover {
+  background: rgba(0, 255, 136, 0.08);
+  box-shadow: 6px 6px 0px var(--color-accent-muted);
+}
+
+.pixel-btn-ghost:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px var(--color-accent-muted);
+}
+
+/* Pixel input */
+.pixel-input {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  border: 2px solid var(--color-edge);
+  color: var(--color-ink);
+  padding: 0.6rem 0.75rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 100ms, box-shadow 100ms;
+}
+
+.pixel-input::placeholder {
+  color: var(--color-muted);
+  opacity: 0.7;
+}
+
+.pixel-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent), 3px 3px 0px rgba(0, 255, 136, 0.15);
+}
+
+.pixel-input:disabled {
+  opacity: 0.5;
+}
+
+/* Pixel select */
+.pixel-select {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  border: 2px solid var(--color-edge);
+  color: var(--color-ink);
+  padding: 0.6rem 2rem 0.6rem 0.75rem;
+  outline: none;
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2300ff88' d='M0 0h2v2H0zm2 0h2v2H2zm2 2h2v2H4zm2 0h2v2H6zm-4 2h2v2H2zm2 0h2v2H4z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
+.pixel-select:focus {
+  border-color: var(--color-accent);
+}
+
+.pixel-select:disabled {
+  opacity: 0.5;
+}
+
+/* Severity bar */
+.severity-bar-track {
+  height: 10px;
+  background: var(--color-edge);
+  border: 2px solid var(--color-edge);
+  overflow: hidden;
+}
+
+.severity-bar-fill {
+  height: 100%;
+  transition: width 600ms cubic-bezier(0.25, 0, 0, 1);
+}
+
+/* Status dot */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Animations */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.blink {
+  animation: blink-cursor 1s step-end infinite;
+}
+
+@keyframes pulse-glow-green {
+  0%, 100% { box-shadow: 0 0 3px var(--color-accent); }
+  50% { box-shadow: 0 0 10px var(--color-accent), 0 0 20px rgba(0, 255, 136, 0.25); }
+}
+
+.pulse-green {
+  animation: pulse-glow-green 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-amber {
+  0%, 100% { box-shadow: 0 0 3px var(--color-warning); }
+  50% { box-shadow: 0 0 10px var(--color-warning); }
+}
+
+.pulse-amber {
+  animation: pulse-glow-amber 1.4s ease-in-out infinite;
+}
+
+@keyframes scan-line {
+  0% { top: -4px; }
+  100% { top: 100%; }
+}
+
+.scan-anim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--color-accent), transparent);
+  opacity: 0.35;
+  animation: scan-line 2.4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-in-up 280ms ease-out both;
+}
+
+/* Section label */
+.section-label {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-muted);
+}
+
+/* Mono data value */
+.data-val {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+/* Pixel divider */
+.pixel-hr {
+  border: none;
+  border-top: 2px solid var(--color-edge);
+  margin: 0;
+}
+
+/* Source tag */
+.source-tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
