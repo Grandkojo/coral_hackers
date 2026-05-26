@@ -8,6 +8,5 @@ class ReportResponse(BaseModel):
     citations: list[str] = Field(default_factory=list)
     unresolved_gaps: list[str] = Field(default_factory=list)
     severity_score: float = 0.0
-    remediation_mode: str = Field(
-        description="autonomous_fix or human_agent_paired."
-    )
+    remediation_mode: str = Field(description="autonomous_fix or human_agent_paired.")
+    root_cause: str | None = None

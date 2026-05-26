@@ -141,11 +141,15 @@ More endpoints: [`backend/README.md`](backend/README.md).
 | [`docs/hackathon.md`](docs/hackathon.md) | Official links, track, dates, bounties |
 | [`docs/architecture_diagram.txt`](docs/architecture_diagram.txt) | End-to-end system design |
 | [`docs/backend_project_structure.md`](docs/backend_project_structure.md) | Backend folders and architecture mapping |
+| [`docs/implementation_status.md`](docs/implementation_status.md) | **What has been built, layer by layer — start here** |
+| [`docs/reef_postman_collection.json`](docs/reef_postman_collection.json) | Postman collection (17 requests, full lifecycle) |
 | [`backend/README.md`](backend/README.md) | Run and test the API locally |
 
 ## Status
 
-Early scaffold: orchestration loop, severity gate, and trigger routes are in place. Next: real Coral CLI/MCP queries and authenticated GitHub / Sentry / Slack / Vercel clients.
+Backend fully implemented (Phases 1–3): real Coral CLI/mock integration, SQLite persistence, stateful orchestration loop, severity-gated remediation, 25 passing tests, and a Postman collection.
+
+Next: wire frontend to real API, LLM planner (Phase 4B), Slack approval flow (Phase 6).
 
 ## Links
 

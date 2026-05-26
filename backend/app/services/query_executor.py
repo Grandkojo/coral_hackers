@@ -1,6 +1,44 @@
+from app.clients.coral_runtime_client import CoralQueryError, CoralRuntimeClient
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+_READ_ONLY_PREFIXES = ("select", "with", "explain")
+
+
+class QueryExecutionError(Exception):
+    pass
+
+
 class QueryExecutor:
-    """Runs Coral SQL and normalizes rows."""
+    """Validates, executes, and normalizes Coral SQL queries."""
+
+    def __init__(self) -> None:
+        self._client = CoralRuntimeClient()
 
     def execute(self, sql: str) -> list[dict]:
-        # Placeholder implementation until Coral runtime integration is added.
-        return [{"sql": sql, "result": "mock_row"}]
+        self._guard_read_only(sql)
+        try:
+            rows = self._client.query(sql)
+        except CoralQueryError as exc:
+            logger.warning("coral query failed: %s", exc)
+            raise QueryExecutionError(str(exc)) from exc
+        logger.debug("query returned %d rows", len(rows))
+        return self._normalize(rows)
+
+    # ------------------------------------------------------------------
+
+    def _guard_read_only(self, sql: str) -> None:
+        stripped = sql.strip().lower()
+        if not any(stripped.startswith(p) for p in _READ_ONLY_PREFIXES):
+            raise QueryExecutionError(
+                f"Only read-only SQL is permitted. Received: {sql[:80]!r}"
+            )
+
+    def _normalize(self, rows: list[dict]) -> list[dict]:
+        """Ensure every row is a plain dict; drop None-only entries."""
+        result = []
+        for row in rows:
+            if isinstance(row, dict) and any(v is not None for v in row.values()):
+                result.append(row)
+        return result
