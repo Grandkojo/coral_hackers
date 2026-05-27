@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import type { ReportResponse } from '../types/index'
+import { approveRemediation } from '../api/investigations'
 import PixelCard from './PixelCard'
+import QueryEvidencePanel from './QueryEvidencePanel'
 import SeverityBar from './SeverityBar'
 import StatusBadge from './StatusBadge'
 import type { BadgeVariant } from './StatusBadge'
@@ -15,9 +18,24 @@ function remediationBadge(mode: string): { variant: BadgeVariant, label: string 
     : { variant: 'human-paired', label: 'Human approval req' }
 }
 
-// Final report view — maps to ReportResponse backend schema
 export default function ReportPanel({ report, onReset }: ReportPanelProps) {
   const badge = remediationBadge(report.remediation_mode)
+  const [approved, setApproved] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [approveError, setApproveError] = useState<string | null>(null)
+
+  async function handleApprove() {
+    setApproveError(null)
+    setApproving(true)
+    try {
+      await approveRemediation(report.investigation_id)
+      setApproved(true)
+    } catch (err) {
+      setApproveError(err instanceof Error ? err.message : 'Approval failed')
+    } finally {
+      setApproving(false)
+    }
+  }
 
   return (
     <div className="space-y-5 fade-up">
@@ -25,20 +43,34 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
         title="Incident Report"
         titleRight={<StatusBadge label={badge.label} variant={badge.variant} />}
       >
-        {/* Session ID */}
         <div className="flex items-center gap-2 mb-4">
           <span className="label">Session</span>
           <span className="data-val font-mono text-[0.68rem]">{report.investigation_id}</span>
         </div>
 
-        {/* Severity */}
         <div className="mb-6">
           <SeverityBar score={report.severity_score} />
         </div>
 
+        {report.root_cause ? (
+          <div
+            className="p-4 mb-6"
+            style={{
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+            }}
+          >
+            <span className="label block mb-2" style={{ color: 'var(--green)' }}>
+              Root cause
+            </span>
+            <p className="font-mono text-[0.68rem] leading-relaxed" style={{ color: 'var(--ink-2)' }}>
+              {report.root_cause}
+            </p>
+          </div>
+        ) : null}
+
         <hr className="divider mb-6" />
 
-        {/* Three-column evidence grid */}
         <div className="grid gap-6 md:grid-cols-3 mb-6">
           <div>
             <span
@@ -104,7 +136,6 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
           </div>
         </div>
 
-        {/* Unresolved gaps */}
         {report.unresolved_gaps.length > 0 ? (
           <div
             className="p-4 mb-6 space-y-2"
@@ -125,20 +156,38 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
           </div>
         ) : null}
 
-        {/* Action row */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <button className="btn btn-ghost" onClick={onReset}>
             New investigation
           </button>
+
           {report.remediation_mode === 'autonomous_fix' ? (
-            <button className="btn btn-primary">Apply autonomous fix</button>
-          ) : (
             <button className="btn btn-primary" disabled>
-              Awaiting human approval
+              Autonomous fix eligible
+            </button>
+          ) : approved ? (
+            <button className="btn btn-primary" disabled>
+              Remediation approved
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary"
+              onClick={() => void handleApprove()}
+              disabled={approving}
+            >
+              {approving ? 'Approving…' : 'Approve remediation'}
             </button>
           )}
         </div>
+
+        {approveError ? (
+          <p className="font-mono text-[0.62rem] mt-3" style={{ color: 'var(--red)' }}>
+            {approveError}
+          </p>
+        ) : null}
       </PixelCard>
+
+      <QueryEvidencePanel investigationId={report.investigation_id} />
     </div>
   )
 }
