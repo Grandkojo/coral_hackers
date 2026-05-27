@@ -1,0 +1,15 @@
+{
+  "action": "created",
+  "data": {
+    "issue": {
+      "id": "123118380",
+      "shortId": "REEF-API-1",
+      "title": "HTTP 500 on /api/v1/triggers/dashboard under load",
+      "level": "error",
+      "project": {
+        "slug": "reef-api",
+        "name": "reef-api"
+      }
+    }
+  }
+}

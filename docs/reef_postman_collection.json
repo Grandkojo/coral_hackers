@@ -1,0 +1,575 @@
+{
+  "info": {
+    "name": "Reef — Incident Intelligence Agent",
+    "description": "Full end-to-end collection for the Reef backend.\n\n**Flow**\n1. Health check\n2. Trigger an investigation from the dashboard → saves `investigation_id` automatically\n3. Poll the investigation status\n4. Fetch the finalized report\n5. Approve remediation (human-paired gate)\n6. Alternate trigger sources (Slack, webhook)\n7. Negative / edge-case tests\n\n**Variables** (defined at collection level, overridden by environment)\n- `base_url`  — default `http://127.0.0.1:8000`\n- `investigation_id` — auto-populated by the dashboard trigger test script",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "investigation_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0 · Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "description": "Verifies the service is up. Expect `{\"status\": \"ok\"}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Body is ok', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql('ok');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 · Trigger investigation",
+      "description": "Start an investigation from each trigger source. The dashboard request auto-saves `investigation_id` for use in later folders.",
+      "item": [
+        {
+          "name": "Dashboard trigger — checkout failure (saves ID)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/triggers/dashboard",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"dashboard\",\n  \"query\": \"Why did checkout fail after the last deploy?\"\n}"
+            },
+            "description": "Starts the full investigation loop (up to 5 Coral queries in mock mode). Saves the returned `investigation_id` as a collection variable for the polling / report requests below."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Response has investigation_id', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.investigation_id).to.be.a('string').and.not.be.empty;",
+                  "  // Persist for later requests",
+                  "  pm.collectionVariables.set('investigation_id', json.investigation_id);",
+                  "  console.log('investigation_id saved:', json.investigation_id);",
+                  "});",
+                  "",
+                  "pm.test('Has root_cause', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.root_cause).to.be.a('string').and.not.be.empty;",
+                  "});",
+                  "",
+                  "pm.test('severity_score is a number in [0,1]', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.severity_score).to.be.a('number');",
+                  "  pm.expect(json.severity_score).to.be.within(0, 1);",
+                  "});",
+                  "",
+                  "pm.test('remediation_mode is valid', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(['autonomous_fix', 'human_agent_paired'])",
+                  "    .to.include(json.remediation_mode);",
+                  "});",
+                  "",
+                  "pm.test('Has at least one citation', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.citations).to.be.an('array').with.length.above(0);",
+                  "  pm.expect(json.citations[0]).to.match(/^coral:\\/\\//);",
+                  "});",
+                  "",
+                  "pm.test('Has timeline events', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.timeline).to.be.an('array').with.length.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Has suspects', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.suspects).to.be.an('array').with.length.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Slack trigger — payment failures",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/triggers/slack",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"slack\",\n  \"query\": \"Payment failures spiking in #incidents — what happened?\",\n  \"context\": {\n    \"channel_id\": \"C0INCIDENTS\",\n    \"user\": \"diana.reyes\"\n  }\n}"
+            },
+            "description": "Simulates a Slack slash-command trigger. Source is overridden to `slack` by the route."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('investigation_id present', () => {",
+                  "  pm.expect(pm.response.json().investigation_id).to.be.a('string');",
+                  "});",
+                  "pm.test('Source does not leak into suspects', () => {",
+                  "  // root_cause should be evidence-based, not the source name",
+                  "  const rc = pm.response.json().root_cause || '';",
+                  "  pm.expect(rc.toLowerCase()).to.not.eql('slack');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Webhook trigger — generic alert",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/triggers/webhook",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"webhook\",\n  \"incident_id\": \"INC-20260526-001\",\n  \"query\": \"Checkout 500 errors since 18:47 UTC — investigate root cause\",\n  \"context\": {\n    \"alert_source\": \"pagerduty\",\n    \"severity\": \"P1\"\n  }\n}"
+            },
+            "description": "Simulates an inbound PagerDuty / monitoring webhook trigger."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has citations starting with coral://', () => {",
+                  "  const cits = pm.response.json().citations;",
+                  "  pm.expect(cits.every(c => c.startsWith('coral://'))).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 · Poll investigation",
+      "description": "Uses the `investigation_id` saved by the dashboard trigger.",
+      "item": [
+        {
+          "name": "Get investigation status",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/investigations/{{investigation_id}}",
+            "description": "Poll status, confidence score, and root cause. Use this during a live run to watch the loop progress."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('investigation_id matches', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.investigation_id)",
+                  "    .to.eql(pm.collectionVariables.get('investigation_id'));",
+                  "});",
+                  "",
+                  "pm.test('Status is complete (sync run)', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql('complete');",
+                  "});",
+                  "",
+                  "pm.test('confidence_score between 0 and 1', () => {",
+                  "  const score = pm.response.json().confidence_score;",
+                  "  pm.expect(score).to.be.within(0, 1);",
+                  "});",
+                  "",
+                  "pm.test('iteration_count > 0', () => {",
+                  "  pm.expect(pm.response.json().iteration_count).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Timestamps present', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.created_at).to.be.a('string');",
+                  "  pm.expect(json.completed_at).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get finalized report",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/investigations/{{investigation_id}}/report",
+            "description": "Retrieve the full `ReportResponse` from the persisted `ReportSnapshot`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Report investigation_id matches', () => {",
+                  "  pm.expect(pm.response.json().investigation_id)",
+                  "    .to.eql(pm.collectionVariables.get('investigation_id'));",
+                  "});",
+                  "",
+                  "pm.test('Root cause is present in report', () => {",
+                  "  pm.expect(pm.response.json().root_cause).to.be.a('string').and.not.be.empty;",
+                  "});",
+                  "",
+                  "pm.test('Timeline has entries', () => {",
+                  "  pm.expect(pm.response.json().timeline).to.be.an('array').with.length.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Severity score matches status endpoint', () => {",
+                  "  // Both endpoints read from the same DB row",
+                  "  const reportScore = pm.response.json().severity_score;",
+                  "  pm.expect(reportScore).to.be.a('number').and.be.within(0, 1);",
+                  "});",
+                  "",
+                  "pm.test('All citations are coral:// URIs', () => {",
+                  "  const cits = pm.response.json().citations || [];",
+                  "  pm.expect(cits.every(c => c.startsWith('coral://'))).to.be.true;",
+                  "});",
+                  "",
+                  "// Save remediation_mode for the approval test",
+                  "pm.collectionVariables.set(",
+                  "  'remediation_mode',",
+                  "  pm.response.json().remediation_mode",
+                  ");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 · Remediation gate",
+      "description": "Approval endpoint for `human_agent_paired` investigations.",
+      "item": [
+        {
+          "name": "Approve remediation",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/investigations/{{investigation_id}}/approve",
+            "description": "Human approval gate. Returns 200 when `remediation_mode == human_agent_paired`, 400 otherwise."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const mode = pm.collectionVariables.get('remediation_mode');",
+                  "",
+                  "if (mode === 'human_agent_paired') {",
+                  "  pm.test('Approval accepted (human_agent_paired)', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().approved).to.be.true;",
+                  "    pm.expect(pm.response.json().investigation_id)",
+                  "      .to.eql(pm.collectionVariables.get('investigation_id'));",
+                  "  });",
+                  "} else {",
+                  "  pm.test('400 when mode is autonomous_fix', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 · Edge cases & error handling",
+      "description": "Negative tests that validate schema validation, 404s, and business rule rejections.",
+      "item": [
+        {
+          "name": "Trigger — missing query field (expect 422)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/triggers/dashboard",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"dashboard\"\n}"
+            },
+            "description": "Pydantic should reject this with 422 Unprocessable Entity because `query` is required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('Error detail mentions query field', () => {",
+                  "  const body = pm.response.json();",
+                  "  const raw = JSON.stringify(body).toLowerCase();",
+                  "  pm.expect(raw).to.include('query');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Trigger — empty body (expect 422)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/triggers/webhook",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('422 for empty body', () => pm.response.to.have.status(422));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get investigation — unknown ID (expect 404)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/investigations/does-not-exist-00000000",
+            "description": "Should return 404 with a descriptive detail message."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('404 for unknown investigation', () => pm.response.to.have.status(404));",
+                  "pm.test('Detail message present', () => {",
+                  "  pm.expect(pm.response.json().detail).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get report — unknown ID (expect 404)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/investigations/does-not-exist-00000000/report"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('404 for unknown report', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve — unknown ID (expect 404)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/investigations/does-not-exist-00000000/approve"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('404 for approve on unknown investigation', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 · Full flow (automated run)",
+      "description": "One folder that chains the entire lifecycle in order. Run this with the Collection Runner to validate the complete path in a single pass.\n\nOrder:\n  1. Health\n  2. Dashboard trigger  →  saves investigation_id\n  3. Poll status\n  4. Fetch report\n  5. Conditional approve",
+      "item": [
+        {
+          "name": "[Flow 1] Health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Health OK', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Flow 2] Start investigation",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/triggers/dashboard",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source\": \"dashboard\",\n  \"query\": \"Why did checkout fail after the last deploy?\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Trigger OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('investigation_id', json.investigation_id);",
+                  "pm.collectionVariables.set('remediation_mode', json.remediation_mode);",
+                  "pm.test('investigation_id saved', () => {",
+                  "  pm.expect(json.investigation_id).to.be.a('string').and.not.be.empty;",
+                  "});",
+                  "pm.test('root_cause populated', () => {",
+                  "  pm.expect(json.root_cause).to.be.a('string').and.not.be.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Flow 3] Poll status",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/investigations/{{investigation_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('complete', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql('complete');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Flow 4] Fetch report",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/investigations/{{investigation_id}}/report"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Report 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has root_cause', () => pm.expect(json.root_cause).to.be.a('string'));",
+                  "pm.test('Has timeline', () => pm.expect(json.timeline.length).to.be.above(0));",
+                  "pm.test('Has suspects', () => pm.expect(json.suspects.length).to.be.above(0));",
+                  "pm.test('Citations are coral:// URIs', () => {",
+                  "  pm.expect(json.citations.every(c => c.startsWith('coral://'))).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Flow 5] Approve (conditional on mode)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/v1/investigations/{{investigation_id}}/approve"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const mode = pm.collectionVariables.get('remediation_mode');",
+                  "if (mode === 'human_agent_paired') {",
+                  "  pm.test('Approval accepted', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().approved).to.be.true;",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Rejected (autonomous mode)', () => {",
+                  "    pm.response.to.have.status(400);",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

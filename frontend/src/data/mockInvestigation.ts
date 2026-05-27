@@ -22,4 +22,5 @@ export const MOCK_REPORT_BASE: Omit<ReportResponse, 'investigation_id'> = {
   unresolved_gaps: ['Missing Datadog APM traces for auth-service during incident window'],
   severity_score: 0.72,
   remediation_mode: 'human_agent_paired',
+  root_cause: 'PR #234 auth-middleware refactor correlated with fatal AuthenticationError spike after deploy dpl_9e2xk.',
 }

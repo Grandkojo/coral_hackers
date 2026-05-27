@@ -4,7 +4,7 @@ This document explains the initial backend scaffold for the **Production Inciden
 
 It maps directly to `docs/architecture_diagram.txt`. Hackathon links and track notes: `docs/hackathon.md`.
 
-## Folder Tree
+## Folder Tree 
 
 ```text
 backend/

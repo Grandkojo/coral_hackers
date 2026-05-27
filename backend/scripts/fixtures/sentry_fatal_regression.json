@@ -1,0 +1,15 @@
+{
+  "action": "created",
+  "data": {
+    "issue": {
+      "id": "123118379",
+      "shortId": "PYTHON-FASTAPI-2",
+      "title": "NullReference in payment validation after deploy",
+      "level": "fatal",
+      "project": {
+        "slug": "python-fastapi",
+        "name": "python-fastapi"
+      }
+    }
+  }
+}
