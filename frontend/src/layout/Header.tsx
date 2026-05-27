@@ -1,11 +1,14 @@
-import ThemeToggle from '../components/ThemeToggle'
+import ThemeToggle from "../components/ThemeToggle";
 
 interface HeaderProps {
-  onHome?: () => void
-  showHistoryNav?: boolean
+  onHome?: () => void;
+  showHistoryNav?: boolean;
 }
 
-export default function Header({ onHome, showHistoryNav = false }: HeaderProps) {
+export default function Header({
+  onHome,
+  showHistoryNav = false,
+}: HeaderProps) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -17,7 +20,9 @@ export default function Header({ onHome, showHistoryNav = false }: HeaderProps) 
               </div>
               <div>
                 <span className="brand-name">Reef</span>
-                <span className="brand-tagline">Incident intelligence agent</span>
+                <span className="brand-tagline">
+                  Incident intelligence agent
+                </span>
               </div>
             </button>
           ) : (
@@ -27,7 +32,9 @@ export default function Header({ onHome, showHistoryNav = false }: HeaderProps) 
               </div>
               <div>
                 <span className="brand-name">Reef</span>
-                <span className="brand-tagline">Incident intelligence agent</span>
+                <span className="brand-tagline">
+                  Incident intelligence agent
+                </span>
               </div>
             </>
           )}
@@ -35,17 +42,17 @@ export default function Header({ onHome, showHistoryNav = false }: HeaderProps) 
 
         <div className="site-header-actions">
           {showHistoryNav && onHome ? (
-            <button type="button" className="btn btn-ghost header-nav-btn" onClick={onHome}>
+            <button
+              type="button"
+              className="btn btn-ghost header-nav-btn"
+              onClick={onHome}
+            >
               New investigation
             </button>
           ) : null}
-          <div className="status-pill">
-            <span className="dot pulse-green" style={{ background: 'var(--green)' }} />
-            <span>Agent ready</span>
-          </div>
           <ThemeToggle />
         </div>
       </div>
     </header>
-  )
+  );
 }

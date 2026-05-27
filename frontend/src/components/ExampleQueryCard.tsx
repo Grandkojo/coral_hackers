@@ -11,7 +11,7 @@ WHERE g.owner = 'acme'
   AND g.repo = 'checkout-service'
   AND s.level IN ('fatal', 'error')
 ORDER BY s.first_seen DESC
-LIMIT 20;`
+LIMIT 20;`;
 
 export default function ExampleQueryCard() {
   return (
@@ -19,7 +19,7 @@ export default function ExampleQueryCard() {
       <div className="card-header">
         <div>
           <span className="label block mb-1">Example Coral query</span>
-          <span className="font-body text-sm" style={{ color: 'var(--ink-2)' }}>
+          <span className="font-body text-sm" style={{ color: "var(--ink-2)" }}>
             Cross-source JOIN — no warehouse, no ETL
           </span>
         </div>
@@ -33,8 +33,8 @@ export default function ExampleQueryCard() {
       <div className="example-query-footer">
         <span className="feature-chip">Transparent evidence</span>
         <span className="feature-chip">Human approval gate</span>
-        <span className="feature-chip">Vercel · Sentry · GitHub · Slack</span>
+        <span className="feature-chip">Vercel Sentry GitHub Slack</span>
       </div>
     </div>
-  )
+  );
 }

@@ -1,27 +1,27 @@
-import type { ReactNode } from 'react'
-import SourceBadges from './SourceBadges'
+import type { ReactNode } from "react";
+import SourceBadges from "./SourceBadges";
 
 const WORKFLOW = [
   {
-    step: '01',
-    title: 'Trigger',
-    detail: 'Describe the incident or paste a Vercel deploy link.',
+    step: "01",
+    title: "Trigger",
+    detail: "Describe the incident or paste a Vercel deploy link",
   },
   {
-    step: '02',
-    title: 'Investigate',
-    detail: 'Reef runs Coral SQL across GitHub, Sentry, Slack, and Vercel.',
+    step: "02",
+    title: "Investigate",
+    detail: "Reef runs Coral SQL across GitHub, Sentry, Slack, and Vercel",
   },
   {
-    step: '03',
-    title: 'Resolve',
-    detail: 'Review cited evidence and approve remediation when needed.',
+    step: "03",
+    title: "Resolve",
+    detail: "Review cited evidence and approve remediation when needed",
   },
-] as const
+] as const;
 
 interface HeroSectionProps {
-  alerts?: ReactNode
-  form: ReactNode
+  alerts?: ReactNode;
+  form: ReactNode;
 }
 
 export default function HeroSection({ alerts, form }: HeroSectionProps) {
@@ -31,18 +31,13 @@ export default function HeroSection({ alerts, form }: HeroSectionProps) {
 
       <div className="hero-landing-intro">
         <div className="hero-landing-copy">
-          <div className="hero-badge">
-            <span className="dot pulse-green" style={{ background: 'var(--green)' }} />
-            <span>Production incident intelligence</span>
-          </div>
-
           <h1 className="hero-title">
             <span className="hero-title-accent">Reef</span>
             <span className="hero-title-sub">Cross-source incident agent</span>
           </h1>
 
           <p className="hero-lead">
-            One query. One report. Optionally, one fix — powered by Coral.
+            One query. One report. Optionally, one fix — powered by Coral
           </p>
         </div>
       </div>
@@ -75,5 +70,5 @@ export default function HeroSection({ alerts, form }: HeroSectionProps) {
         </div>
       </div>
     </section>
-  )
+  );
 }
