@@ -1,0 +1,15 @@
+{
+  "action": "created",
+  "data": {
+    "issue": {
+      "id": "123118378",
+      "shortId": "PYTHON-FASTAPI-1",
+      "title": "This is an example FastAPI exception",
+      "level": "error",
+      "project": {
+        "slug": "python-fastapi",
+        "name": "python-fastapi"
+      }
+    }
+  }
+}

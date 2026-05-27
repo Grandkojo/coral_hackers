@@ -4,7 +4,8 @@ import json
 from sqlalchemy.orm import Session
 
 from app.db.models import Investigation, QueryRun, ReportSnapshot
-from app.schemas.investigation import InvestigationState
+from app.schemas.investigation import InvestigationState, InvestigationSummary
+from app.schemas.query_run import QueryRunResponse
 from app.schemas.report import ReportResponse
 
 
@@ -82,9 +83,75 @@ class EvidenceStore:
     def get_investigation(self, investigation_id: str) -> Investigation | None:
         return self._db.get(Investigation, investigation_id)
 
+    def list_investigations(self, limit: int = 50) -> list[InvestigationSummary]:
+        rows = (
+            self._db.query(Investigation)
+            .order_by(Investigation.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [self._to_investigation_summary(row) for row in rows]
+
     def get_report(self, investigation_id: str) -> ReportSnapshot | None:
         return (
             self._db.query(ReportSnapshot)
             .filter(ReportSnapshot.investigation_id == investigation_id)
             .first()
+        )
+
+    def get_query_runs(self, investigation_id: str) -> list[QueryRunResponse]:
+        runs = (
+            self._db.query(QueryRun)
+            .filter(QueryRun.investigation_id == investigation_id)
+            .order_by(QueryRun.iteration)
+            .all()
+        )
+        return [self._to_query_run_response(run) for run in runs]
+
+    def approve_remediation(self, investigation_id: str) -> Investigation:
+        inv = self._db.get(Investigation, investigation_id)
+        if inv is None:
+            raise ValueError("Investigation not found.")
+        if inv.remediation_mode != "human_agent_paired":
+            raise ValueError(
+                f"Investigation remediation_mode is '{inv.remediation_mode}'. "
+                "Approval only required for 'human_agent_paired'."
+            )
+        if inv.approved_at is not None:
+            return inv
+
+        inv.approved_at = datetime.datetime.now(datetime.timezone.utc)
+        self._db.commit()
+        self._db.refresh(inv)
+        return inv
+
+    @staticmethod
+    def _to_query_run_response(run: QueryRun) -> QueryRunResponse:
+        return QueryRunResponse(
+            id=run.id,
+            investigation_id=run.investigation_id,
+            iteration=run.iteration,
+            sql=run.sql,
+            rationale=run.rationale,
+            row_count=run.row_count,
+            rows=run.rows,
+            citation=f"coral://query-run/{run.id}",
+            ran_at=run.ran_at.isoformat() if run.ran_at else None,
+        )
+
+    @staticmethod
+    def _to_investigation_summary(inv: Investigation) -> InvestigationSummary:
+        return InvestigationSummary(
+            investigation_id=inv.id,
+            status=inv.status,
+            source=inv.source,
+            user_query=inv.user_query or "",
+            iteration_count=inv.iteration_count,
+            confidence_score=inv.confidence_score,
+            root_cause=inv.root_cause,
+            severity_score=inv.severity_score,
+            remediation_mode=inv.remediation_mode,
+            approved_at=inv.approved_at.isoformat() if inv.approved_at else None,
+            created_at=inv.created_at.isoformat() if inv.created_at else None,
+            completed_at=inv.completed_at.isoformat() if inv.completed_at else None,
         )

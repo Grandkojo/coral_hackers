@@ -1,0 +1,7 @@
+{
+  "issue_id": "123118381",
+  "short_id": "CHECKOUT-4821",
+  "title": "TypeError: Cannot read properties of undefined (reading 'amount')",
+  "level": "fatal",
+  "project": "checkout-service"
+}

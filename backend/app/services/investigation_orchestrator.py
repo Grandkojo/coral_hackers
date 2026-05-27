@@ -5,6 +5,7 @@ from app.core.logging import get_logger
 from app.schemas.investigation import InvestigationState, InvestigationStatus
 from app.schemas.report import ReportResponse
 from app.schemas.trigger import TriggerRequest
+from app.services.context_enricher import ContextEnricher
 from app.services.escalation_engine import EscalationEngine
 from app.services.evidence_store import EvidenceStore
 from app.services.judge_service import JudgeService
@@ -31,20 +32,26 @@ class InvestigationOrchestrator:
         self.planner = PlannerService()
         self.judge = JudgeService()
         self.query_executor = QueryExecutor()
+        self.context_enricher = ContextEnricher(query_executor=self.query_executor)
         self.evidence_store = evidence_store
         self.escalation_engine = EscalationEngine()
         self.severity_gate = SeverityGate()
         self.report_generator = ReportGenerator()
 
     def run(self, trigger: TriggerRequest) -> ReportResponse:
-        state = InvestigationState(investigation_id=str(uuid4()))
+        trigger_context = self.context_enricher.enrich(dict(trigger.context))
+        state = InvestigationState(
+            investigation_id=str(uuid4()),
+            trigger_context=trigger_context,
+        )
         self.evidence_store.create(
             state, source=trigger.source, user_query=trigger.query
         )
         logger.info(
-            "investigation started id=%s source=%s",
+            "investigation started id=%s source=%s trigger_type=%s",
             state.investigation_id,
             trigger.source,
+            trigger.context.get("trigger_type", "manual"),
         )
 
         citations: list[str] = []
@@ -54,7 +61,10 @@ class InvestigationOrchestrator:
                 state=state, user_query=trigger.query
             )
             logger.debug(
-                "iter=%d rationale=%s", state.iteration_count, plan.rationale
+                "iter=%d rationale=%s planner=%s",
+                state.iteration_count,
+                plan.rationale,
+                self.planner.mode,
             )
 
             try:

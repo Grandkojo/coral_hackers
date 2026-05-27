@@ -1,0 +1,76 @@
+[
+  {
+    "name": "dashboard-nl-checkout",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "query": "Why did checkout start returning 500 errors after the last production deploy?",
+      "incident_id": "DEMO-NL-001"
+    }
+  },
+  {
+    "name": "dashboard-nl-sentry-spike",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "query": "Sentry errors spiked on python-fastapi right after a Vercel deploy — find the regression.",
+      "incident_id": "DEMO-NL-002"
+    }
+  },
+  {
+    "name": "dashboard-nl-auth",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "query": "Users cannot authenticate after the latest merge — correlate PRs, deploys, and fatal errors.",
+      "incident_id": "DEMO-NL-003"
+    }
+  },
+  {
+    "name": "dashboard-nl-minimal",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "query": "Investigate the latest production incident across GitHub, Sentry, Slack, and Vercel."
+    }
+  },
+  {
+    "name": "dashboard-vercel-reef",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "vercel_url": "https://vercel.com/grandkojo/reef/dpl_EEWWZ361mMHt6cnfxB3cFWQkChnv",
+      "query": "This deployment shows errors in production — investigate root cause."
+    }
+  },
+  {
+    "name": "dashboard-vercel-id-only",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "vercel_url": "dpl_3NxkGF9TF2ArYH9z4suVWd27u7w9"
+    }
+  },
+  {
+    "name": "dashboard-vercel-hubmapgh",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "vercel_url": "dpl_BzbATqUqJeXi3nwSd8JDe5myDanS",
+      "query": "Production deploy for hubmapgh may have caused downstream API failures."
+    }
+  },
+  {
+    "name": "dashboard-vercel-with-context",
+    "method": "POST",
+    "path": "/api/v1/triggers/dashboard",
+    "body": {
+      "vercel_url": "dpl_EEWWZ361mMHt6cnfxB3cFWQkChnv",
+      "query": "Correlate this failed deploy with Sentry and recent PR merges.",
+      "context": {
+        "github_owner": "Grandkojo",
+        "github_repo": "coral_hackers"
+      }
+    }
+  }
+]

@@ -21,6 +21,7 @@ class Investigation(Base):
     root_cause = Column(Text, nullable=True)
     severity_score = Column(Float, nullable=True)
     remediation_mode = Column(String, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
 

@@ -104,20 +104,29 @@ _MOCK_OWNERSHIP = [
     }
 ]
 
+_MOCK_GITHUB_LINK = [
+    {
+        "github_owner": "Grandkojo",
+        "github_repo": "coral_hackers",
+    }
+]
+
 
 def _mock_query(sql: str) -> list[dict]:
     s = sql.lower()
     if "coral.tables" in s:
         return _MOCK_TABLES
-    if "sentry" in s and ("join" in s or "fatal" in s or "pull_request" in s):
+    if "sentry" in s and ("join" in s or "fatal" in s or "pull" in s):
         return _MOCK_DEPLOY_ERRORS
     if "sentry" in s:
         return _MOCK_DEPLOY_ERRORS
     if "slack" in s:
         return _MOCK_SLACK_MESSAGES
+    if "json_get_str" in s and "link" in s:
+        return _MOCK_GITHUB_LINK
     if "vercel" in s or "deployment" in s:
         return _MOCK_DEPLOYMENTS
-    if "codeowner" in s or "owner" in s or "oncall" in s:
+    if "codeowner" in s or "collaborator" in s or "oncall" in s:
         return _MOCK_OWNERSHIP
     return []
 
@@ -142,7 +151,7 @@ class CoralRuntimeClient:
         logger.info("coral[cli] sql=%.120s", sql)
         try:
             result = subprocess.run(
-                [settings.coral_binary, "sql", "--output", "json", sql],
+                [settings.coral_binary, "sql", "--format", "json", sql],
                 capture_output=True,
                 text=True,
                 timeout=settings.coral_sql_timeout,

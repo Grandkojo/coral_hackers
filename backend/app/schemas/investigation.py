@@ -31,3 +31,24 @@ class InvestigationState(BaseModel):
     confidence_score: float = 0.0
     root_cause: str | None = None
     escalation_flags: dict[str, bool] = Field(default_factory=dict)
+    trigger_context: dict[str, str] = Field(default_factory=dict)
+
+
+class InvestigationSummary(BaseModel):
+    investigation_id: str
+    status: str
+    source: str
+    user_query: str
+    iteration_count: int = 0
+    confidence_score: float = 0.0
+    root_cause: str | None = None
+    severity_score: float | None = None
+    remediation_mode: str | None = None
+    approved_at: str | None = None
+    created_at: str | None = None
+    completed_at: str | None = None
+
+
+class InvestigationListResponse(BaseModel):
+    investigations: list[InvestigationSummary] = Field(default_factory=list)
+    total: int = 0

@@ -42,7 +42,10 @@ Health check: `GET http://127.0.0.1:8000/health`
 | `MAX_INVESTIGATION_ITERATIONS` | `5` | Max orchestrator loop iterations |
 | `CONFIDENCE_THRESHOLD` | `0.6` | Judge: minimum confidence to stop the loop |
 | `SEVERITY_THRESHOLD` | `0.7` | Gate: above this → `human_agent_paired` |
-| `GITHUB_TOKEN` | _(empty)_ | Remediation path only |
+| `GITHUB_TOKEN` | _(empty)_ | Coral github source + Reef remediation |
+| `GITHUB_OWNER` | _(empty)_ | Coral `github.pulls` / ownership filters |
+| `GITHUB_REPO` | _(empty)_ | Coral `github.pulls` / ownership filters |
+| `GITHUB_ACCOUNT_TYPE` | `user` | `user` → `github.collaborators` · `org` → `github.teams` |
 | `VERCEL_TOKEN` | _(empty)_ | Remediation path only |
 | `SENTRY_TOKEN` | _(empty)_ | Remediation path only |
 | `SLACK_BOT_TOKEN` | _(empty)_ | Slack notifications + approval gate |
@@ -53,16 +56,56 @@ Health check: `GET http://127.0.0.1:8000/health`
 
 ## Coral setup (when `CORAL_MODE=cli`)
 
+Credential template: `backend/.env.example` (shared tokens + Coral-specific keys like `SENTRY_ORG` and `SLACK_TOKEN`).
+
+Non-interactive setup for enterprises (env vars → Coral sources):
+
 ```bash
-brew install withcoral/tap/coral
-coral source add github
-coral source add sentry
-coral source add slack
-# coral source add vercel  (community spec)
-coral sql "SELECT * FROM coral.tables LIMIT 20"
+brew install withcoral/tap/coral   # or install to ~/.local/bin
+cp .env.example .env               # fill GITHUB_TOKEN, SENTRY_ORG, SENTRY_TOKEN, SLACK_TOKEN
+set -a && source .env && set +a
+./scripts/setup_coral_sources.sh
 ```
 
-See [Coral docs](https://withcoral.com/docs) for source configuration and MCP setup.
+Then set `CORAL_MODE=cli` in `.env` and restart the API.
+
+Manual alternative:
+
+```bash
+coral source add github   # reads GITHUB_TOKEN from env
+coral source add sentry   # reads SENTRY_ORG, SENTRY_TOKEN
+coral source add slack    # reads SLACK_TOKEN
+coral sql "SELECT schema_name, table_name FROM coral.tables LIMIT 20"
+```
+
+## Simulate triggers (demo / hackathon)
+
+With the API running (`uvicorn app.main:app --reload`) and Coral configured:
+
+```bash
+# 8 dashboard scenarios (4 NL + 4 Vercel URL) + 4 Sentry webhooks
+./scripts/simulate_triggers.sh all
+
+# Subsets
+./scripts/simulate_triggers.sh dashboard
+./scripts/simulate_triggers.sh sentry
+```
+
+**Sentry webhook URL** (configure in Sentry → Settings → Developer Settings → Internal Integrations):
+
+```
+POST http://YOUR_HOST/api/v1/webhooks/sentry
+```
+
+**Dashboard** accepts NL query and/or Vercel deployment URL:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/triggers/dashboard \
+  -H "Content-Type: application/json" \
+  -d '{"vercel_url":"dpl_EEWWZ361mMHt6cnfxB3cFWQkChnv"}'
+```
+
+See `scripts/fixtures/` for sample payloads.
 
 ---
 
