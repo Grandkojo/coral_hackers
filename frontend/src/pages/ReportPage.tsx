@@ -1,0 +1,52 @@
+import { useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useInvestigation } from '../hooks/useInvestigation'
+import InvestigationHistory from '../components/InvestigationHistory'
+import ReportPanel from '../components/ReportPanel'
+
+export default function ReportPage() {
+  const { orgId, reportId } = useParams<{ orgId: string; reportId: string }>()
+  const navigate = useNavigate()
+  const { report, selectedInvestigationId, historyRefreshKey, handleSelectHistory, handleReset } =
+    useInvestigation()
+
+  useEffect(() => {
+    if (reportId && !report) {
+      handleSelectHistory(reportId).catch(() => {
+        navigate(`/${orgId}`)
+      })
+    }
+  }, [reportId, report, handleSelectHistory, navigate, orgId])
+
+  const handleSelectHistoryItem = async (investigationId: string) => {
+    await handleSelectHistory(investigationId)
+    navigate(`/${orgId}/report/${investigationId}`)
+  }
+
+  const handleBackToDashboard = () => {
+    handleReset()
+    navigate(`/${orgId}`)
+  }
+
+  return (
+    <div className="report-layout fade-up">
+      <aside className="report-sidebar">
+        <InvestigationHistory
+          compact
+          onSelect={(id) => void handleSelectHistoryItem(id)}
+          selectedId={selectedInvestigationId}
+          refreshKey={historyRefreshKey}
+        />
+      </aside>
+      <div className="report-main">
+        {report ? (
+          <ReportPanel report={report} onReset={handleBackToDashboard} />
+        ) : (
+          <div className="loading-state">
+            <p>Loading report...</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

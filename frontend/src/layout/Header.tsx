@@ -1,28 +1,36 @@
-import ThemeToggle from "../components/ThemeToggle";
+import { useLocation, useNavigate } from 'react-router-dom'
+import { FiGlobe } from 'react-icons/fi'
+import ThemeToggle from '../components/ThemeToggle'
 
-interface HeaderProps {
-  onHome?: () => void;
-  showHistoryNav?: boolean;
-}
+export default function Header() {
+  const location = useLocation()
+  const navigate = useNavigate()
 
-export default function Header({
-  onHome,
-  showHistoryNav = false,
-}: HeaderProps) {
+  const handleIntegrate = () => {
+    // TODO: Implement org integration flow (OAuth, etc.)
+    console.log('Integrate into org clicked')
+  }
+
+  const handleHome = () => {
+    if (location.pathname !== '/') {
+      navigate('/')
+    }
+  }
+
+  const isNotHome = location.pathname !== '/'
+
   return (
     <header className="site-header">
       <div className="site-header-inner">
         <div className="brand-lockup">
-          {onHome ? (
-            <button type="button" className="brand-button" onClick={onHome}>
+          {isNotHome ? (
+            <button type="button" className="brand-button" onClick={handleHome}>
               <div className="brand-mark" aria-hidden="true">
                 <span className="brand-mark-core" />
               </div>
               <div>
                 <span className="brand-name">Reef</span>
-                <span className="brand-tagline">
-                  Incident intelligence
-                </span>
+                <span className="brand-tagline">Incident intelligence</span>
               </div>
             </button>
           ) : (
@@ -32,27 +40,25 @@ export default function Header({
               </div>
               <div>
                 <span className="brand-name">Reef</span>
-                <span className="brand-tagline">
-                  Incident intelligence
-                </span>
+                <span className="brand-tagline">Incident intelligence</span>
               </div>
             </>
           )}
         </div>
 
         <div className="site-header-actions">
-          {showHistoryNav && onHome ? (
-            <button
-              type="button"
-              className="btn btn-ghost header-nav-btn"
-              onClick={onHome}
-            >
-              New investigation
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="btn btn-ghost header-nav-btn"
+            onClick={handleIntegrate}
+            title="Integrate into your organization"
+          >
+            <FiGlobe />
+            <span>Integrate</span>
+          </button>
           <ThemeToggle />
         </div>
       </div>
     </header>
-  );
+  )
 }
