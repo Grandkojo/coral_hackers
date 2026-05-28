@@ -25,6 +25,14 @@ if ! command -v "$CORAL" >/dev/null 2>&1; then
   fi
 fi
 
+if ! coral_version="$("$CORAL" --version 2>&1)"; then
+  echo "error: coral CLI failed to run ($CORAL)" >&2
+  echo "$coral_version" >&2
+  echo "hint: rebuild the API image (needs glibc >= 2.39, e.g. python:3.12-slim-trixie)" >&2
+  exit 1
+fi
+echo "Using coral: $coral_version"
+
 if [[ -n "${CORAL_CONFIG_DIR:-}" ]]; then
   mkdir -p "$CORAL_CONFIG_DIR"
   export CORAL_CONFIG_DIR
@@ -99,8 +107,6 @@ add_vercel_source() {
   "$CORAL" source add --file "$VERCEL_MANIFEST"
   "$CORAL" source test vercel
 }
-
-echo "Using coral: $("$CORAL" --version)"
 
 add_bundled_source github GITHUB_TOKEN
 add_bundled_source sentry SENTRY_ORG SENTRY_TOKEN
