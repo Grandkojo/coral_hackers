@@ -1,0 +1,2 @@
+# Shell scripts must use LF (Docker/Linux entrypoints break with CRLF).
+*.sh text eol=lf
