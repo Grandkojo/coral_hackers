@@ -64,7 +64,10 @@ setup_coral_sources() {
   export CORAL_SETUP_SMOKE="${CORAL_SETUP_SMOKE:-false}"
 
   echo "configuring coral sources in ${CORAL_CONFIG_DIR}"
-  /app/scripts/setup_coral_sources.sh
+  if ! /app/scripts/setup_coral_sources.sh; then
+    echo "warning: coral source setup failed; starting API anyway" >&2
+    echo "  fill tokens in .env or run: docker compose exec api /app/scripts/setup_coral_sources.sh" >&2
+  fi
 }
 
 wait_for_postgres

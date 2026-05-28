@@ -15,7 +15,7 @@ if [[ -f "${BACKEND_DIR}/.env" ]]; then
   set +a
 fi
 
-CORAL_BINARY="${CORAL_BINARY:-coral}"
+CORAL="${CORAL_BINARY:-coral}"
 if ! command -v "$CORAL" >/dev/null 2>&1; then
   if [[ -x "${HOME}/.local/bin/coral" ]]; then
     CORAL="${HOME}/.local/bin/coral"
