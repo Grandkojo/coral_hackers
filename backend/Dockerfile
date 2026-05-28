@@ -21,7 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY scripts ./scripts
 
-RUN chmod +x /app/scripts/docker-entrypoint.sh /app/scripts/setup_coral_sources.sh
+RUN sed -i 's/\r$//' /app/scripts/*.sh \
+  && chmod +x /app/scripts/docker-entrypoint.sh /app/scripts/setup_coral_sources.sh
 
 EXPOSE 8000
 
