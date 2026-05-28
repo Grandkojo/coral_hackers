@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import type { InvestigationSummary } from '../types/index'
 import { fetchInvestigations } from '../api/investigations'
 
 interface InvestigationHistoryProps {
-  onSelect: (investigationId: string) => void
+  onSelect: (investigationId: string) => void | Promise<void>
   selectedId?: string | null
   refreshKey?: number
   compact?: boolean
@@ -44,6 +46,7 @@ export default function InvestigationHistory({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [loadingId, setLoadingId] = useState<string | null>(null)
 
   useEffect(() => {
     setShowAll(false)
@@ -117,16 +120,30 @@ export default function InvestigationHistory({
                 const isSelected = selectedId === item.investigation_id
                 const preview = item.root_cause || item.user_query
 
+                const isLoading = loadingId === item.investigation_id
+
                 return (
                   <li key={item.investigation_id}>
                     <button
                       type="button"
-                      className={`history-item ${isSelected ? 'history-item-selected' : ''}`}
-                      onClick={() => onSelect(item.investigation_id)}
+                      className={`history-item ${isSelected ? 'history-item-selected' : ''} ${isLoading ? 'history-item-loading' : ''}`}
+                      disabled={loadingId !== null}
+                      onClick={async () => {
+                        flushSync(() => setLoadingId(item.investigation_id))
+                        try {
+                          await onSelect(item.investigation_id)
+                        } finally {
+                          setLoadingId(null)
+                        }
+                      }}
                     >
                       <div className="history-item-top">
                         <span className="history-item-query">{truncate(item.user_query || 'Untitled investigation')}</span>
-                        <span className="history-item-severity">{severityLabel(item.severity_score)}</span>
+                        {isLoading ? (
+                          <AiOutlineLoading3Quarters className="spin" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                        ) : (
+                          <span className="history-item-severity">{severityLabel(item.severity_score)}</span>
+                        )}
                       </div>
 
                       <p className="history-item-preview">{truncate(preview, compact ? 56 : 88)}</p>

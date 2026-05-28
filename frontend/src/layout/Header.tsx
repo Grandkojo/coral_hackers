@@ -7,8 +7,7 @@ export default function Header() {
   const navigate = useNavigate()
 
   const handleIntegrate = () => {
-    // TODO: Implement org integration flow (OAuth, etc.)
-    console.log('Integrate into org clicked')
+    navigate('/signup')
   }
 
   const handleHome = () => {

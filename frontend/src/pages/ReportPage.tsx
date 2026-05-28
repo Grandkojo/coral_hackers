@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { useInvestigation } from '../hooks/useInvestigation'
 import InvestigationHistory from '../components/InvestigationHistory'
 import ReportPanel from '../components/ReportPanel'
@@ -7,25 +8,40 @@ import ReportPanel from '../components/ReportPanel'
 export default function ReportPage() {
   const { orgId, reportId } = useParams<{ orgId: string; reportId: string }>()
   const navigate = useNavigate()
-  const { report, selectedInvestigationId, historyRefreshKey, handleSelectHistory, handleReset } =
-    useInvestigation()
+  const {
+    report,
+    selectedInvestigationId,
+    historyRefreshKey,
+    isLoadingReport,
+    handleSelectHistory,
+    handleReset,
+  } = useInvestigation()
 
   useEffect(() => {
     if (reportId && !report) {
       handleSelectHistory(reportId).catch(() => {
-        navigate(`/${orgId}`)
+        navigate(orgId ? `/${orgId}` : '/')
       })
     }
   }, [reportId, report, handleSelectHistory, navigate, orgId])
 
   const handleSelectHistoryItem = async (investigationId: string) => {
     await handleSelectHistory(investigationId)
-    navigate(`/${orgId}/report/${investigationId}`)
+    navigate(orgId ? `/${orgId}/report/${investigationId}` : `/report/${investigationId}`)
   }
 
   const handleBackToDashboard = () => {
     handleReset()
-    navigate(`/${orgId}`)
+    navigate(orgId ? `/${orgId}` : '/')
+  }
+
+  if (isLoadingReport || (!report && reportId)) {
+    return (
+      <div className="report-loading-screen">
+        <AiOutlineLoading3Quarters className="spin report-loading-icon" />
+        <p className="report-loading-label">Loading report…</p>
+      </div>
+    )
   }
 
   return (
@@ -39,13 +55,7 @@ export default function ReportPage() {
         />
       </aside>
       <div className="report-main">
-        {report ? (
-          <ReportPanel report={report} onReset={handleBackToDashboard} />
-        ) : (
-          <div className="loading-state">
-            <p>Loading report...</p>
-          </div>
-        )}
+        {report && <ReportPanel report={report} onReset={handleBackToDashboard} />}
       </div>
     </div>
   )

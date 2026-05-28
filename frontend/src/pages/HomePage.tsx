@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useInvestigation } from '../hooks/useInvestigation'
 import InvestigationForm from '../components/InvestigationForm'
 import InvestigationHistory from '../components/InvestigationHistory'
@@ -5,7 +6,13 @@ import HeroSection from '../components/HeroSection'
 import ExampleQueryCard from '../components/ExampleQueryCard'
 
 export default function HomePage() {
+  const navigate = useNavigate()
   const { error, isLoadingReport, selectedInvestigationId, historyRefreshKey, handleSelectHistory } = useInvestigation()
+
+  const handleSelectHistoryItem = async (investigationId: string) => {
+    await handleSelectHistory(investigationId)
+    navigate(`/report/${investigationId}`)
+  }
 
   return (
     <div className="landing-layout fade-up">
@@ -32,7 +39,7 @@ export default function HomePage() {
       />
 
       <InvestigationHistory
-        onSelect={(id) => void handleSelectHistory(id)}
+        onSelect={(id) => void handleSelectHistoryItem(id)}
         selectedId={selectedInvestigationId}
         refreshKey={historyRefreshKey}
       />

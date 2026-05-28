@@ -24,6 +24,10 @@ export const routes: RouteObject[] = [
         element: <SignupPage />,
       },
       {
+        path: 'report/:reportId',
+        element: <ReportPage />,
+      },
+      {
         path: ':orgId',
         element: <OrgDashboardPage />,
       },

@@ -508,6 +508,16 @@ nav {
   z-index: 1;
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
 @keyframes slide-in-row {
   from {
     opacity: 0;
@@ -1256,6 +1266,11 @@ code {
   box-shadow: var(--shadow-sm);
 }
 
+.history-item-loading {
+  opacity: 0.75;
+  cursor: wait;
+}
+
 .history-item-top {
   display: flex;
   align-items: flex-start;
@@ -1299,6 +1314,26 @@ code {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.report-loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 60dvh;
+}
+
+.report-loading-icon {
+  font-size: 2.5rem;
+  color: var(--accent);
+}
+
+.report-loading-label {
+  font-size: 0.9rem;
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
 }
 
 .report-layout {
