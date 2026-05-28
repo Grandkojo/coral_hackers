@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git rm *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\('Name:', p.get\\('name',''\\)\\); print\\('Scripts:', list\\(p.get\\('scripts',{}\\).keys\\(\\)\\)\\); print\\('Deps:', list\\(p.get\\('dependencies',{}\\).keys\\(\\)\\)\\)\")"
     ]
   }
 }
