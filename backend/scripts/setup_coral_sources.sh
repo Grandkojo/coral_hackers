@@ -15,7 +15,7 @@ if [[ -f "${BACKEND_DIR}/.env" ]]; then
   set +a
 fi
 
-CORAL="${CORAL_BINARY:-coral}"
+CORAL_BINARY="${CORAL_BINARY:-coral}"
 if ! command -v "$CORAL" >/dev/null 2>&1; then
   if [[ -x "${HOME}/.local/bin/coral" ]]; then
     CORAL="${HOME}/.local/bin/coral"
@@ -23,6 +23,11 @@ if ! command -v "$CORAL" >/dev/null 2>&1; then
     echo "error: coral CLI not found (set CORAL_BINARY or add ~/.local/bin to PATH)" >&2
     exit 1
   fi
+fi
+
+if [[ -n "${CORAL_CONFIG_DIR:-}" ]]; then
+  mkdir -p "$CORAL_CONFIG_DIR"
+  export CORAL_CONFIG_DIR
 fi
 
 VERCEL_MANIFEST_URL="https://raw.githubusercontent.com/withcoral/coral/main/sources/community/vercel/manifest.yaml"
@@ -105,6 +110,12 @@ add_vercel_source
 echo
 echo "Configured sources:"
 "$CORAL" source list
+
+if [[ "${CORAL_SETUP_SMOKE:-true}" == "false" ]]; then
+  echo
+  echo "CORAL_SETUP_SMOKE=false; skipping smoke SQL queries."
+  exit 0
+fi
 
 run_sql "coral.tables" \
   "SELECT schema_name, table_name FROM coral.tables WHERE schema_name IN ('github','sentry','slack','vercel') ORDER BY schema_name, table_name LIMIT 30"

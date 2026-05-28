@@ -194,6 +194,21 @@ pytest -v
 
 ---
 
+## Deploy on GCE (Docker + Postgres + Coral CLI)
+
+Production guide: [`deploy/gce/README.md`](../deploy/gce/README.md)
+
+Quick local smoke test with the same stack:
+
+```bash
+cd backend
+cp ../deploy/gce/env.production.example .env   # edit tokens
+docker compose up -d --build
+curl http://127.0.0.1:8000/health
+```
+
+---
+
 ## Investigation flow (aligned with `docs/architecture_diagram.txt`)
 
 ```
