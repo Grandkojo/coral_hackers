@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reef
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reef}
+      POSTGRES_DB: reef
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reef -d reef"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://reef:${POSTGRES_PASSWORD:-reef}@postgres:5432/reef
+      CORAL_MODE: ${CORAL_MODE:-cli}
+      CORAL_CONFIG_DIR: /data/coral
+      CORAL_SETUP_ON_START: ${CORAL_SETUP_ON_START:-true}
+      CORAL_SETUP_SMOKE: ${CORAL_SETUP_SMOKE:-false}
+    volumes:
+      - coral_data:/data/coral
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  coral_data:

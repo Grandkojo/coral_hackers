@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.py[cod]
+*.db
+.env
+.env.*
+!.env.example
+tests
+.pytest_cache
+.mypy_cache
+reef.db
+*.md

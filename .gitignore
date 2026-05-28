@@ -19,3 +19,4 @@ frontend/*.sln
 frontend/*.sw?
 
 __pycache__/
+.env.production
