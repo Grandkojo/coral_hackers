@@ -21,7 +21,7 @@ export default function Header({
               <div>
                 <span className="brand-name">Reef</span>
                 <span className="brand-tagline">
-                  Incident intelligence agent
+                  Incident intelligence
                 </span>
               </div>
             </button>
@@ -33,7 +33,7 @@ export default function Header({
               <div>
                 <span className="brand-name">Reef</span>
                 <span className="brand-tagline">
-                  Incident intelligence agent
+                  Incident intelligence
                 </span>
               </div>
             </>

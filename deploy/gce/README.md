@@ -278,7 +278,14 @@ docker compose exec api coral source list
 ```
 
 **CORS errors from Vercel**  
-Add your exact frontend origin to `CORS_ORIGINS` (scheme + host, no trailing slash).
+Add your exact frontend origin to `CORS_ORIGINS` (scheme + host, no trailing slash), then **recreate** the API container (a plain `restart` does not reload `.env`):
+
+```bash
+docker compose up -d --force-recreate api
+docker compose exec api printenv CORS_ORIGINS
+```
+
+Preflight should return `access-control-allow-origin: https://your-frontend-domain`.
 
 **502 from nginx**  
 Confirm the API is up and bound to localhost:
