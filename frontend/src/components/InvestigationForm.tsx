@@ -89,7 +89,7 @@ export default function InvestigationForm({
             style={isHero ? undefined : { color: "var(--ink-2)" }}
           >
             {isHero
-              ? "Describe what broke — Reef investigates across your stack"
+              ? "Describe what broke across your stack"
               : "Start from natural language or a deployment link"}
           </span>
         </div>
@@ -135,8 +135,8 @@ export default function InvestigationForm({
             disabled={isSubmitting}
           />
           <p className="field-hint">
-            Describe the incident in plain English. Reef correlates GitHub,
-            Sentry, Slack, and Vercel via Coral
+            Describe the incident in plain English — GitHub, Sentry, Slack,
+            and Vercel correlated via Coral.
           </p>
         </div>
 

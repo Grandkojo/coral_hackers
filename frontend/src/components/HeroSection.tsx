@@ -10,7 +10,7 @@ const WORKFLOW = [
   {
     step: "02",
     title: "Investigate",
-    detail: "Reef runs Coral SQL across GitHub, Sentry, Slack, and Vercel",
+    detail: "Coral SQL across GitHub, Sentry, Slack, and Vercel",
   },
   {
     step: "03",
@@ -31,13 +31,12 @@ export default function HeroSection({ alerts, form }: HeroSectionProps) {
 
       <div className="hero-landing-intro">
         <div className="hero-landing-copy">
-          <h1 className="hero-title">
-            <span className="hero-title-accent">Reef</span>
-            <span className="hero-title-sub">Cross-source incident agent</span>
+          <p className="hero-eyebrow">Production incident intelligence</p>
+          <h1 className="hero-headline">
+            Find what broke across your stack
           </h1>
-
           <p className="hero-lead">
-            One query. One report. Optionally, one fix — powered by Coral
+            One query, one report, optional remediation — correlated with Coral.
           </p>
         </div>
       </div>
