@@ -1,93 +1,103 @@
-import { useState } from 'react'
-import type { DashboardTriggerRequest } from '../types/index'
+import { useState } from "react";
+import type { DashboardTriggerRequest } from "../types/index";
 
 interface InvestigationFormProps {
-  onSubmit: (req: DashboardTriggerRequest) => void
-  isSubmitting: boolean
-  variant?: 'default' | 'hero'
+  onSubmit: (req: DashboardTriggerRequest) => void;
+  isSubmitting: boolean;
+  variant?: "default" | "hero";
 }
 
-const DEMO_SCENARIOS: Array<{ label: string; payload: DashboardTriggerRequest }> = [
+const DEMO_SCENARIOS: Array<{
+  label: string;
+  payload: DashboardTriggerRequest;
+}> = [
   {
-    label: 'Checkout 500s',
+    label: "Checkout 500s",
     payload: {
-      query: 'Why did checkout start returning 500 errors after the last production deploy?',
-      incident_id: 'DEMO-NL-001',
+      query:
+        "Why did checkout start returning 500 errors after the last production deploy?",
+      incident_id: "DEMO-NL-001",
     },
   },
   {
-    label: 'Sentry spike',
+    label: "Sentry spike",
     payload: {
-      query: 'Sentry errors spiked on python-fastapi after a Vercel deploy — find the regression.',
-      incident_id: 'DEMO-NL-002',
+      query:
+        "Sentry errors spiked on python-fastapi after a Vercel deploy — find the regression.",
+      incident_id: "DEMO-NL-002",
     },
   },
   {
-    label: 'Vercel deploy',
+    label: "Vercel deploy",
     payload: {
-      vercel_url: 'dpl_EEWWZ361mMHt6cnfxB3cFWQkChnv',
-      query: 'This reef deployment shows errors — investigate root cause.',
+      vercel_url: "dpl_EEWWZ361mMHt6cnfxB3cFWQkChnv",
+      query: "This reef deployment shows errors — investigate root cause.",
     },
   },
   {
-    label: 'Deploy ID only',
+    label: "Deploy ID only",
     payload: {
-      vercel_url: 'dpl_3NxkGF9TF2ArYH9z4suVWd27u7w9',
+      vercel_url: "dpl_3NxkGF9TF2ArYH9z4suVWd27u7w9",
     },
   },
-]
+];
 
 export default function InvestigationForm({
   onSubmit,
   isSubmitting,
-  variant = 'default',
+  variant = "default",
 }: InvestigationFormProps) {
-  const [query, setQuery] = useState('')
-  const [incidentId, setIncidentId] = useState('')
-  const [vercelUrl, setVercelUrl] = useState('')
+  const [query, setQuery] = useState("");
+  const [incidentId, setIncidentId] = useState("");
+  const [vercelUrl, setVercelUrl] = useState("");
 
-  const isValid = query.trim().length > 0 || vercelUrl.trim().length > 0
+  const isValid = query.trim().length > 0 || vercelUrl.trim().length > 0;
 
   function applyScenario(payload: DashboardTriggerRequest) {
-    setQuery(payload.query ?? '')
-    setIncidentId(payload.incident_id ?? '')
-    setVercelUrl(payload.vercel_url ?? '')
+    setQuery(payload.query ?? "");
+    setIncidentId(payload.incident_id ?? "");
+    setVercelUrl(payload.vercel_url ?? "");
   }
 
   function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!isValid || isSubmitting) return
+    e.preventDefault();
+    if (!isValid || isSubmitting) return;
     onSubmit({
       query: query.trim(),
-      incident_id: incidentId.trim() !== '' ? incidentId.trim() : undefined,
-      vercel_url: vercelUrl.trim() !== '' ? vercelUrl.trim() : undefined,
+      incident_id: incidentId.trim() !== "" ? incidentId.trim() : undefined,
+      vercel_url: vercelUrl.trim() !== "" ? vercelUrl.trim() : undefined,
       context: {},
-    })
+    });
   }
 
-  const isHero = variant === 'hero'
+  const isHero = variant === "hero";
 
   return (
     <form
       onSubmit={handleSubmit}
-      className={`card launch-form ${isHero ? 'launch-form-hero' : ''}`}
+      className={`card launch-form ${isHero ? "launch-form-hero" : ""}`}
     >
       <div className="card-header">
         <div>
-          <span className={`label block ${isHero ? 'launch-form-kicker' : 'mb-1'}`}>
-            {isHero ? 'Start here' : 'Launch investigation'}
+          <span
+            className={`label block ${isHero ? "launch-form-kicker" : "mb-1"}`}
+          >
+            {isHero ? "Start here" : "Launch investigation"}
           </span>
           <span
-            className={isHero ? 'launch-form-headline' : 'font-body text-sm'}
-            style={isHero ? undefined : { color: 'var(--ink-2)' }}
+            className={isHero ? "launch-form-headline" : "font-body text-sm"}
+            style={isHero ? undefined : { color: "var(--ink-2)" }}
           >
             {isHero
-              ? 'Describe what broke — Reef investigates across your stack'
-              : 'Start from natural language or a deployment link'}
+              ? "Describe what broke — Reef investigates across your stack"
+              : "Start from natural language or a deployment link"}
           </span>
         </div>
         {!isHero ? (
-          <span className="font-mono text-[0.56rem]" style={{ color: 'var(--muted)' }}>
+          <span
+            className="font-mono text-[0.56rem]"
+            style={{ color: "var(--muted)" }}
+          >
             POST /api/v1/triggers/dashboard
           </span>
         ) : null}
@@ -125,7 +135,8 @@ export default function InvestigationForm({
             disabled={isSubmitting}
           />
           <p className="field-hint">
-            Describe the incident in plain English. Reef correlates GitHub, Sentry, Slack, and Vercel via Coral.
+            Describe the incident in plain English. Reef correlates GitHub,
+            Sentry, Slack, and Vercel via Coral
           </p>
         </div>
 
@@ -143,7 +154,9 @@ export default function InvestigationForm({
               onChange={(e) => setVercelUrl(e.target.value)}
               disabled={isSubmitting}
             />
-            <p className="field-hint">Optional — paste a deploy link to anchor the investigation.</p>
+            <p className="field-hint">
+              Optional — paste a deploy link to anchor the investigation
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -159,23 +172,29 @@ export default function InvestigationForm({
               onChange={(e) => setIncidentId(e.target.value)}
               disabled={isSubmitting}
             />
-            <p className="field-hint">Optional — Sentry short ID or internal ticket ref.</p>
+            <p className="field-hint">
+              Optional — Sentry short ID or internal ticket ref
+            </p>
           </div>
         </div>
 
-        <div className={`launch-form-footer ${isHero ? 'launch-form-footer-hero' : ''}`}>
+        <div
+          className={`launch-form-footer ${isHero ? "launch-form-footer-hero" : ""}`}
+        >
           <span className="field-hint">
-            {isValid ? 'Ready to launch' : 'Add a query or Vercel deployment to continue'}
+            {isValid
+              ? "Ready to launch"
+              : "Add a query or Vercel deployment to continue"}
           </span>
           <button
             type="submit"
-            className={`btn btn-primary launch-submit ${isHero ? 'launch-submit-hero' : ''}`}
+            className={`btn btn-primary launch-submit ${isHero ? "launch-submit-hero" : ""}`}
             disabled={!isValid || isSubmitting}
           >
-            {isSubmitting ? 'Investigating…' : 'Launch investigation →'}
+            {isSubmitting ? "Investigating…" : "Launch investigation →"}
           </button>
         </div>
       </div>
     </form>
-  )
+  );
 }
