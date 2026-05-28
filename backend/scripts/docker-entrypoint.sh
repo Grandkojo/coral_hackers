@@ -66,7 +66,8 @@ setup_coral_sources() {
   echo "configuring coral sources in ${CORAL_CONFIG_DIR}"
   if ! /app/scripts/setup_coral_sources.sh; then
     echo "warning: coral source setup failed; starting API anyway" >&2
-    echo "  fill tokens in .env or run: docker compose exec api /app/scripts/setup_coral_sources.sh" >&2
+    echo "  check: docker compose exec api coral --version" >&2
+    echo "  re-run: docker compose exec api /app/scripts/setup_coral_sources.sh" >&2
   fi
 }
 

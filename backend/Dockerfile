@@ -1,4 +1,5 @@
-FROM python:3.12-slim-bookworm
+# Coral CLI needs glibc >= 2.39; Bookworm (2.36) is too old.
+FROM python:3.12-slim-trixie
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates bash \

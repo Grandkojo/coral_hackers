@@ -260,10 +260,13 @@ You set a region instead of a zone. Use `us-east1-b`, `us-east1-c`, or `us-east1
 gcloud compute zones list --filter="region:us-east1"
 ```
 
-**Coral setup fails on startup**  
-Check tokens in `.env`. Run manually:
+**Coral setup fails on startup**
+
+- **`GLIBC_2.39 not found`**: the API image must use a recent base (e.g. `python:3.12-slim-trixie` in `backend/Dockerfile`). Rebuild with `docker compose build --no-cache api`.
+- **Missing tokens**: ensure `GITHUB_TOKEN`, `SENTRY_ORG`, `SENTRY_TOKEN`, `SLACK_TOKEN`, `VERCEL_TOKEN` are set in `backend/.env`.
 
 ```bash
+docker compose exec api coral --version
 docker compose exec api /app/scripts/setup_coral_sources.sh
 ```
 
