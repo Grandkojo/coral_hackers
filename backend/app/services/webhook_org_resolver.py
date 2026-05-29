@@ -38,18 +38,22 @@ class WebhookOrgResolver:
 
     def resolve_for_sentry(self, payload: dict) -> OrgContext | None:
         """Map webhook to tenant Coral credentials."""
-        if settings.webhook_organization_id.strip():
-            org = self._db.get(Organization, settings.webhook_organization_id.strip())
+        pinned_id = settings.webhook_organization_id.strip()
+        if pinned_id:
+            org = self._db.get(Organization, pinned_id)
             if org is None:
-                logger.warning(
-                    "WEBHOOK_ORGANIZATION_ID=%s not found",
-                    settings.webhook_organization_id,
+                logger.error(
+                    "WEBHOOK_ORGANIZATION_ID=%s not in this database — "
+                    "use an org id from production (psql or /auth/me on the deployed API), "
+                    "not from local dev",
+                    pinned_id,
                 )
-            else:
-                ctx = self._integrations.build_org_context(org)
-                if ctx.coral_ready or settings.coral_mode.value == "mock":
-                    return ctx
-                logger.warning("webhook org %s coral not ready", org.slug)
+                return None
+            ctx = self._integrations.build_org_context(org)
+            if ctx.coral_ready or settings.coral_mode.value == "mock":
+                return ctx
+            logger.warning("webhook org %s coral not ready", org.slug)
+            return None
 
         slug = extract_sentry_org_slug(payload)
         if slug:

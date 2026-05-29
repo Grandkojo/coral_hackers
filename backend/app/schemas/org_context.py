@@ -22,6 +22,10 @@ class OrgContext:
     vercel_token: str = ""
     coral_ready: bool = False
 
+    def persisted_organization_id(self) -> str | None:
+        """FK for investigations — legacy platform mode has no organizations row."""
+        return None if self.organization_id == "legacy" else self.organization_id
+
     def apply_to_trigger_context(self, context: dict[str, str]) -> dict[str, str]:
         enriched = dict(context)
         if self.github_owner and not enriched.get("github_owner"):
