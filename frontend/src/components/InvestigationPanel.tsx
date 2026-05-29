@@ -28,16 +28,16 @@ export default function InvestigationPanel({ state }: InvestigationPanelProps) {
         <div className="grid grid-cols-3 gap-3 my-5">
           <div className="metric-box">
             <div className="label mb-2">Iteration</div>
-            <div className="data-val text-2xl font-bold">{state.iteration_count}</div>
+            <div className="data-val text-xl sm:text-2xl font-bold">{state.iteration_count}</div>
           </div>
           <div className="metric-box">
             <div className="label mb-2">Evidence rows</div>
-            <div className="data-val text-2xl font-bold">{state.evidence_rows.length}</div>
+            <div className="data-val text-xl sm:text-2xl font-bold">{state.evidence_rows.length}</div>
           </div>
           <div className="metric-box">
             <div className="label mb-2">Confidence</div>
             <div
-              className="font-mono text-2xl font-bold"
+              className="font-mono text-xl sm:text-2xl font-bold"
               style={{ color: meta.color }}
             >
               {pct}%

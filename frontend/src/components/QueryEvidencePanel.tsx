@@ -24,7 +24,7 @@ function QueryRunCard({ run }: { run: QueryRunResponse }) {
     >
       <button
         type="button"
-        className="w-full flex items-center justify-between gap-3 p-4 text-left"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 sm:p-4 text-left min-h-[2.75rem]"
         onClick={() => setOpen((prev) => !prev)}
       >
         <div className="flex items-center gap-3 min-w-0">

@@ -43,9 +43,9 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
         title="Incident Report"
         titleRight={<StatusBadge label={badge.label} variant={badge.variant} />}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <span className="label">Session</span>
-          <span className="data-val font-mono text-[0.68rem]">{report.investigation_id}</span>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="label shrink-0">Session</span>
+          <span className="data-val font-mono text-[0.68rem] break-all">{report.investigation_id}</span>
         </div>
 
         <div className="mb-6">
@@ -71,7 +71,7 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
 
         <hr className="divider mb-6" />
 
-        <div className="grid gap-6 md:grid-cols-3 mb-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-6">
           <div>
             <span
               className="label block mb-3"
@@ -156,22 +156,22 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <button className="btn btn-ghost" onClick={onReset}>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center sm:justify-between gap-3 pt-1">
+          <button className="btn btn-ghost justify-center sm:justify-start" onClick={onReset}>
             New investigation
           </button>
 
           {report.remediation_mode === 'autonomous_fix' ? (
-            <button className="btn btn-primary" disabled>
+            <button className="btn btn-primary justify-center" disabled>
               Autonomous fix eligible
             </button>
           ) : approved ? (
-            <button className="btn btn-primary" disabled>
+            <button className="btn btn-primary justify-center" disabled>
               Remediation approved
             </button>
           ) : (
             <button
-              className="btn btn-primary"
+              className="btn btn-primary justify-center"
               onClick={() => void handleApprove()}
               disabled={approving}
             >
