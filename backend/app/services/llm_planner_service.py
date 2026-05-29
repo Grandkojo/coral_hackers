@@ -33,6 +33,8 @@ Rules:
 - Use trigger context filters when provided (github_owner, github_repo, sentry_issue_id, vercel_deployment_id).
 - HTTP 500 reports often appear in Sentry as TypeError/Exception titles — filter by level/error and time, not only title ILIKE '%500%'.
 - If a query returns 0 rows, simplify: query sentry.issues and vercel.deployments separately before complex CTE joins.
+- Do not subtract INTERVAL from timestamp strings (e.g. `created_at >= '...Z' - INTERVAL '1 day'` fails in Coral).
+  Use `s.first_seen >= d.created_at` joins and `ORDER BY d.created_at DESC` instead.
 - Always include LIMIT (max 50).
 - Return JSON: {"sql": "...", "rationale": "..."}.
 """

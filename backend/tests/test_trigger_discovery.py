@@ -32,6 +32,20 @@ def test_should_skip_catalog_with_deploy_or_repo() -> None:
     assert not should_skip_schema_catalog({})
 
 
+def test_webhook_sentry_only_gets_vercel_correlate_template() -> None:
+    plan = context_anchored_plan(
+        1,
+        {
+            "sentry_issue_id": "123540686",
+            "sentry_project": "reef-incident-lab-api",
+        },
+    )
+    assert plan is not None
+    assert "vercel.deployments" in plan.sql
+    assert "reef-incident-lab-api" in plan.sql
+    assert "INTERVAL" not in plan.sql
+
+
 def test_post_deploy_discovery_orders_newest_sentry_first() -> None:
     plan = context_anchored_plan(
         0,
