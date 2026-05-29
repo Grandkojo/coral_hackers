@@ -203,6 +203,33 @@ LIMIT 10""",
             iteration=iteration,
         )
 
+    if iteration == correlate and sentry_id and not deployment_id:
+        project = (context.get("sentry_project") or "").strip()
+        if project:
+            return QueryPlan(
+                sql=f"""SELECT
+  d.uid AS deployment_id,
+  d.created_at AS deploy_at,
+  s.id AS sentry_issue_id,
+  s.title AS error_message,
+  s.first_seen,
+  p.name AS vercel_project,
+  json_get_str(p.link, 'org') AS github_owner,
+  json_get_str(p.link, 'repo') AS github_repo
+FROM vercel.deployments d
+JOIN vercel.projects p ON p.id = d.project_id
+JOIN sentry.issues s
+  ON s.id = '{sentry_id}' AND s.first_seen >= d.created_at
+WHERE p.name = '{project}'
+ORDER BY d.created_at DESC
+LIMIT 10""",
+                rationale=(
+                    "Sentry webhook — no deploy id in payload; list production "
+                    "deploys for this Vercel/Sentry project before the error."
+                ),
+                iteration=iteration,
+            )
+
     if iteration == correlate and deployment_id and not sentry_id:
         return QueryPlan(
             sql=f"""SELECT
