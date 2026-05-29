@@ -8,6 +8,15 @@ def test_extract_sentry_org_slug() -> None:
     assert extract_sentry_org_slug({"organization": {"slug": "essytech"}}) == "essytech"
 
 
+def test_resolve_returns_none_when_pinned_id_missing() -> None:
+    db = MagicMock()
+    db.get.return_value = None
+    with patch("app.services.webhook_org_resolver.settings") as settings:
+        settings.webhook_organization_id = "missing-uuid"
+        result = WebhookOrgResolver(db).resolve_for_sentry({})
+    assert result is None
+
+
 def test_resolve_prefers_webhook_organization_id() -> None:
     db = MagicMock()
     org = MagicMock()
