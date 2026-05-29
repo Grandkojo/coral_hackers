@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiEye, FiEyeOff } from 'react-icons/fi'
 import { SiGoogle } from 'react-icons/si'
+import { useAuth } from '../hooks/useAuth'
 import type { LoginCredentials } from '../types/auth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: '',
     password: '',
@@ -27,8 +29,14 @@ export default function LoginPage() {
       return
     }
     setIsSubmitting(true)
-    console.log('Login:', credentials)
-    setIsSubmitting(false)
+    try {
+      const user = await login(credentials.email, credentials.password)
+      navigate(`/${user.orgId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign in failed')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleGoogleSignIn = () => {

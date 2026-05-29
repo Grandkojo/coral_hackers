@@ -6,25 +6,23 @@ import type {
   ReportResponse,
 } from '../types/index'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+import { apiFetch, readApiError } from './http'
 
 export async function fetchInvestigations(limit = 50): Promise<InvestigationListResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/investigations?limit=${limit}`)
+  const response = await apiFetch(`/api/v1/investigations?limit=${limit}`)
 
   if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `Failed to load investigations (${response.status})`)
+    throw new Error(await readApiError(response))
   }
 
   return response.json() as Promise<InvestigationListResponse>
 }
 
 export async function fetchQueryRuns(investigationId: string): Promise<QueryRunListResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/investigations/${investigationId}/query-runs`)
+  const response = await apiFetch(`/api/v1/investigations/${investigationId}/query-runs`)
 
   if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `Failed to load query runs (${response.status})`)
+    throw new Error(await readApiError(response))
   }
 
   return response.json() as Promise<QueryRunListResponse>
@@ -38,24 +36,32 @@ export interface ApproveResponse {
 }
 
 export async function approveRemediation(investigationId: string): Promise<ApproveResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/investigations/${investigationId}/approve`, {
+  const response = await apiFetch(`/api/v1/investigations/${investigationId}/approve`, {
     method: 'POST',
   })
 
   if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `Approval failed (${response.status})`)
+    throw new Error(await readApiError(response))
   }
 
   return response.json() as Promise<ApproveResponse>
 }
 
+export async function deleteInvestigation(investigationId: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/investigations/${investigationId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok && response.status !== 204) {
+    throw new Error(await readApiError(response))
+  }
+}
+
 export async function fetchReport(investigationId: string): Promise<ReportResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/investigations/${investigationId}/report`)
+  const response = await apiFetch(`/api/v1/investigations/${investigationId}/report`)
 
   if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `Failed to load report (${response.status})`)
+    throw new Error(await readApiError(response))
   }
 
   return response.json() as Promise<ReportResponse>

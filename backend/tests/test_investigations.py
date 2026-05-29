@@ -136,6 +136,22 @@ def test_approve_remediation_persists(client: TestClient) -> None:
     assert status.json()["approved_at"] is not None
 
 
+def test_delete_investigation_removes_record(client: TestClient) -> None:
+    response = client.delete("/api/v1/investigations/test-inv-002")
+
+    assert response.status_code == 204
+    assert client.get("/api/v1/investigations/test-inv-002").status_code == 404
+
+    listed = client.get("/api/v1/investigations").json()
+    ids = {item["investigation_id"] for item in listed["investigations"]}
+    assert "test-inv-002" not in ids
+
+
+def test_delete_investigation_not_found(client: TestClient) -> None:
+    response = client.delete("/api/v1/investigations/missing-id")
+    assert response.status_code == 404
+
+
 def test_approve_remediation_is_idempotent(client: TestClient) -> None:
     first = client.post("/api/v1/investigations/test-inv-001/approve")
     second = client.post("/api/v1/investigations/test-inv-001/approve")

@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import { useInvestigation } from '../hooks/useInvestigation'
 import InvestigationForm from '../components/InvestigationForm'
 import InvestigationHistory from '../components/InvestigationHistory'
@@ -8,6 +10,18 @@ import type { DashboardTriggerRequest } from '../types/index'
 export default function OrgDashboardPage() {
   const { orgId } = useParams<{ orgId: string }>()
   const navigate = useNavigate()
+  const { isAuthenticated, isLoading, user } = useAuth()
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!isAuthenticated) {
+      navigate('/login', { replace: true })
+      return
+    }
+    if (user && orgId && user.orgId !== orgId) {
+      navigate(`/${user.orgId}`, { replace: true })
+    }
+  }, [isLoading, isAuthenticated, user, orgId, navigate])
   const {
     investigationState,
     selectedInvestigationId,

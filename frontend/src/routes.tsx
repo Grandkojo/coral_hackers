@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import OrgDashboardPage from './pages/OrgDashboardPage'
+import ProfilePage from './pages/ProfilePage'
 import ReportPage from './pages/ReportPage'
 
 export const routes: RouteObject[] = [
@@ -26,6 +27,10 @@ export const routes: RouteObject[] = [
       {
         path: 'report/:reportId',
         element: <ReportPage />,
+      },
+      {
+        path: ':orgId/settings',
+        element: <ProfilePage />,
       },
       {
         path: ':orgId',

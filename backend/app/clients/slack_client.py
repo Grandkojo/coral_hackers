@@ -14,8 +14,8 @@ class SlackClient:
     Investigation reads go through Coral (slack.messages table), not here.
     """
 
-    def __init__(self) -> None:
-        self._token = settings.slack_bot_token
+    def __init__(self, token: str | None = None) -> None:
+        self._token = (token or "").strip() or settings.slack_bot_token
 
     def _headers(self) -> dict[str, str]:
         return {

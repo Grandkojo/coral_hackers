@@ -19,9 +19,13 @@ def _ensure_sqlite_columns() -> None:
     if not inspector.has_table("investigations"):
         return
     columns = {column["name"] for column in inspector.get_columns("investigations")}
-    if "approved_at" not in columns:
-        with engine.begin() as conn:
+    with engine.begin() as conn:
+        if "approved_at" not in columns:
             conn.execute(text("ALTER TABLE investigations ADD COLUMN approved_at DATETIME"))
+        if "organization_id" not in columns:
+            conn.execute(
+                text("ALTER TABLE investigations ADD COLUMN organization_id VARCHAR")
+            )
 
 
 def get_db() -> Generator[Session, None, None]:

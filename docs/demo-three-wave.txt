@@ -1,0 +1,486 @@
+================================================================================
+REEF DEMO PLAYBOOK — 3-WAVE INCIDENT LAB (ORG REPO + GITHUB + VERCEL + SENTRY + SLACK)
+================================================================================
+
+Purpose
+-------
+Build a fresh GitHub org repo with THREE controlled production waves so Reef/Coral
+can correlate real data across sources. Two waves intentionally break production
+(different error types); one wave is clean (control).
+
+Reef's strongest join (template + LLM planner):
+  github.pulls.merged_at  <=  sentry.issues.first_seen
+  + vercel.deployments around the same window
+  + slack channel #incidents (metadata; post human-readable incident text)
+
+Timeline rule: for each wave, always:
+  1) Open PR → review → merge to main
+  2) Wait for Vercel production deploy to finish
+  3) Hit the broken endpoint (waves 2–3) or health only (wave 1)
+  4) Confirm events in Sentry
+  5) Post a short message in Slack #incidents
+  6) Run Reef investigation (note deploy id + time)
+
+Allow 5–15 minutes between merge and investigation so Coral/Sentry indexes data.
+
+
+================================================================================
+PART 0 — NAMES (pick once, use everywhere)
+================================================================================
+
+  GitHub org:        reef-demo-org          (example — use your real org slug)
+  GitHub repo:       reef-incident-lab
+  Vercel project:    reef-incident-lab      (import from GitHub)
+  Sentry org slug:   <from sentry.io URL>
+  Sentry project:    reef-incident-lab-api
+  Slack channel:     incidents              (no # in .env — SLACK_INCIDENT_CHANNEL=incidents)
+
+  Production URL:    https://reef-incident-lab.vercel.app   (or your custom domain)
+
+  Reef backend .env:
+    GITHUB_OWNER=reef-demo-org
+    GITHUB_REPO=reef-incident-lab
+    GITHUB_ACCOUNT_TYPE=org
+    SENTRY_ORG=<your-sentry-org-slug>
+    SLACK_INCIDENT_CHANNEL=incidents
+
+
+================================================================================
+PART 1 — CREATE GITHUB ORG + REPO
+================================================================================
+
+1.1 Create organization (if you don't have one)
+    - https://github.com/organizations/plan
+    - Name: reef-demo-org (or similar)
+    - Note the org slug (URL: github.com/reef-demo-org)
+
+1.2 Create repository
+    - New repo: reef-incident-lab
+    - Private or public (public is easier for hackathon demos)
+    - Add README, .gitignore (Python), license optional
+    - Default branch: main
+
+1.3 GitHub token for Reef/Coral (org access)
+    - Settings → Developer settings → Fine-grained personal access token
+      OR classic PAT with repo scope for the org
+    - Scopes: read access to metadata, pull requests, contents (repo)
+    - Save as GITHUB_TOKEN in backend/.env
+
+1.4 Recommended minimal app (FastAPI on Vercel)
+    Create backend/app structure in the repo:
+
+      reef-incident-lab/
+        api/
+          index.py          # Vercel serverless entry (or main.py + vercel.json)
+          requirements.txt  # fastapi, sentry-sdk[fastapi], uvicorn
+        vercel.json
+        README.md
+
+    api/index.py should expose:
+      GET  /health              → always 200 {"status":"ok","wave":N}
+      POST /checkout            → wave 1 OK; wave 2 raises TypeError
+      POST /auth/login          → wave 1 OK; wave 3 raises 401/validation error
+      GET  /deploy-info         → returns DEPLOY_WAVE env for debugging
+
+    Use environment variable on Vercel per deploy:
+      DEPLOY_WAVE=1 | 2 | 3
+    (Set in Vercel → Project → Settings → Environment Variables → Production)
+
+    Sentry init in the app (required for real errors):
+      import sentry_sdk
+      sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
+
+1.5 Branch protection (optional but realistic)
+    - Settings → Branches → Add rule on main
+    - Require 1 PR review before merge (use a second account or self-review via org policy)
+
+
+================================================================================
+PART 2 — SENTRY PROJECT + TOKEN
+================================================================================
+
+2.1 Create Sentry organization (if needed)
+    - https://sentry.io/signup/
+    - Org slug appears in URL: .../organizations/<SENTRY_ORG>/
+
+2.2 Create project
+    - Platform: Python → FastAPI (or Python generic)
+    - Project name: reef-incident-lab-api
+    - Copy DSN → you will add to Vercel as SENTRY_DSN
+
+2.3 Auth token (Coral + Reef)
+    - Settings → Auth Tokens → Create
+    - Scopes: org:read, project:read, event:read
+    - backend/.env:
+        SENTRY_ORG=<org-slug>
+        SENTRY_TOKEN=sntrys_...
+
+2.4 Internal integration webhook (optional — auto-trigger Reef)
+    - Settings → Developer Settings → New Internal Integration
+    - Webhook URL: https://api-reef.grandkojo.my/api/v1/webhooks/sentry
+    - Subscribe: issue created / issue alerts
+    - Use for wave 2–3 after errors appear
+
+2.5 Alert rule (recommended)
+    - Alerts → Create → "Issues" → When: A new issue is created
+    - Action: webhook or email (webhook hits Reef if configured)
+
+
+================================================================================
+PART 3 — VERCEL PROJECT + TOKEN
+================================================================================
+
+3.1 Import GitHub repo
+    - https://vercel.com/new → Import reef-demo-org/reef-incident-lab
+    - Framework: Other (or Python if detected)
+    - Root directory: api/ or repo root per your layout
+    - Production branch: main
+
+3.2 Environment variables (Production)
+    SENTRY_DSN=https://...@....ingest.sentry.io/...
+    SENTRY_ENVIRONMENT=production
+    DEPLOY_WAVE=1                    # change to 2, then 3 for each wave
+
+3.3 Vercel token
+    - Account → Settings → Tokens → Create
+    - backend/.env: VERCEL_TOKEN=...
+
+3.4 After each merge
+    - Vercel auto-deploys main → Production
+    - Deployments tab → copy Deployment ID (dpl_xxxxxxxx)
+    - Save IDs in a log (see table at end)
+
+
+================================================================================
+PART 4 — SLACK WORKSPACE + #incidents
+================================================================================
+
+4.1 Create Slack app
+    - https://api.slack.com/apps → Create New App → From scratch
+    - Name: Reef Incident Bot
+    - Install to workspace
+
+4.2 Bot token scopes
+    channels:read, channels:history, groups:read, chat:write
+
+4.3 Install app → copy Bot User OAuth Token (xoxb-...)
+    backend/.env:
+      SLACK_TOKEN=xoxb-...
+      SLACK_BOT_TOKEN=xoxb-...        # same token is fine for posting
+
+4.4 Create channel #incidents
+    - Invite the bot to the channel
+    - SLACK_INCIDENT_CHANNEL=incidents
+
+4.5 What to post after each wave (human incident signal)
+    Wave 1 (clean):
+      "[WAVE-1] Deploy dpl_XXX healthy — smoke test green, no customer impact."
+
+    Wave 2 (checkout break):
+      "[WAVE-2] INCIDENT: checkout 500s after deploy dpl_YYY — TypeError in payment path.
+       Sentry: CHECKOUT-TYPEERROR. Severity: high."
+
+    Wave 3 (auth break):
+      "[WAVE-3] INCIDENT: auth failures spike after deploy dpl_ZZZ — 401 invalid credentials.
+       Different from wave 2. On-call investigating."
+
+    Note: Current Coral slack source exposes channel metadata more than full thread
+    history; these posts still help your demo narrative and future slack upgrades.
+
+
+================================================================================
+PART 5 — REEF / CORAL ON GCE (one-time)
+================================================================================
+
+5.1 backend/.env on VM (fill all tokens from parts 1–4)
+
+    CORAL_MODE=cli
+    GITHUB_OWNER=reef-demo-org
+    GITHUB_REPO=reef-incident-lab
+    GITHUB_ACCOUNT_TYPE=org
+    GITHUB_TOKEN=...
+    SENTRY_ORG=...
+    SENTRY_TOKEN=...
+    SLACK_TOKEN=...
+    SLACK_INCIDENT_CHANNEL=incidents
+    VERCEL_TOKEN=...
+    CORS_ORIGINS=https://usereef.grandkojo.my,...
+
+    LLM_PROVIDER=anthropic
+    ANTHROPIC_API_KEY=sk-ant-...
+    PLANNER_MODEL=claude-sonnet-4-20250514
+    JUDGE_MODEL=claude-3-5-haiku-20241022
+
+5.2 Recreate API + Coral sources
+
+    cd ~/coral_hackers/backend
+    docker compose up -d --force-recreate api
+    docker compose exec api /app/scripts/setup_coral_sources.sh
+    docker compose exec api coral source list
+
+5.3 Verify Coral can see your org repo (after wave 1 merge)
+
+    docker compose exec api coral sql \
+      "SELECT number, title, merged_at, state FROM github.pulls \
+       WHERE owner = 'reef-demo-org' AND repo = 'reef-incident-lab' \
+       ORDER BY merged_at DESC LIMIT 5"
+
+
+================================================================================
+PART 6 — THREE WAVES (detailed choreography)
+================================================================================
+
+Use separate PRs. Merge only when ready for that wave's story.
+Space waves at least 30–60 minutes apart for clean timelines.
+
+
+--------------------------------------------------------------------------------
+WAVE 1 — CLEAN BASELINE (control: no regression)
+--------------------------------------------------------------------------------
+
+Goal: Establish good deploy + merged PR + empty/minimal Sentry noise.
+
+GitHub
+  - Branch: wave-1-baseline
+  - Change: Add /health, wire Sentry, DEPLOY_WAVE=1 behavior (checkout + auth OK)
+  - PR title: "wave-1: baseline health and observability"
+  - Get 1 approval → Merge to main
+  - Record: PR number ____ , merge time ____
+
+Vercel
+  - Set DEPLOY_WAVE=1 in Production env (if not in code default)
+  - Wait for production deploy READY
+  - Record: dpl________________ , deploy time ____
+
+Validation
+  - curl https://<prod>/health → 200
+  - curl -X POST https://<prod>/checkout -d '{}' → 200
+  - Sentry: no new fatal/error issues (or resolve any test noise)
+
+Slack
+  - Post wave-1 message with dpl_ id
+
+Reef test query (expect low severity / weak root cause):
+  "Investigate production after baseline deploy — any regressions across GitHub,
+   Sentry, Slack, and Vercel?"
+  Or paste vercel_url: dpl_<wave1>
+
+
+--------------------------------------------------------------------------------
+WAVE 2 — CHECKOUT REGRESSION (TypeError / HTTP 500)
+--------------------------------------------------------------------------------
+
+Goal: Obvious code regression tied to merge time; Sentry error type A.
+
+GitHub
+  - Branch: wave-2-checkout-bug
+  - Change: Introduce bug when DEPLOY_WAVE=2, e.g.:
+      amount = None
+      total = amount + 10   # TypeError on POST /checkout
+  - PR title: "wave-2: refactor checkout totals (INTENTIONAL BUG FOR DEMO)"
+  - Review comment: "LGTM for demo" → Merge
+  - Record: PR number ____ , merge time ____
+
+Vercel
+  - Set DEPLOY_WAVE=2 in Production env variables
+  - Redeploy production (merge triggers build)
+  - Record: dpl________________
+
+Trigger errors (10–20 requests)
+  curl -X POST https://<prod>/checkout \
+    -H "Content-Type: application/json" \
+    -d '{"cart_id":"demo-1","amount":null}'
+
+Sentry (expected)
+  - New issue: TypeError (or similar)
+  - Level: error or fatal
+  - Note issue shortId: __________
+
+Slack
+  - Post wave-2 incident message referencing dpl_ and Sentry id
+
+Reef test query (expect PR ↔ Sentry correlation):
+  "Why did checkout start returning 500 errors after the last production deploy?"
+  Or:
+  vercel_url=dpl_<wave2> + query about checkout TypeError
+
+Expected Reef behavior:
+  - Planner iter 1+: join github.pulls + sentry.issues
+  - Judge: hypothesis naming wave-2 PR and TypeError
+  - Root cause mentions PR # and error message
+
+
+--------------------------------------------------------------------------------
+WAVE 3 — AUTH REGRESSION (different error class: 401 / ValueError)
+--------------------------------------------------------------------------------
+
+Goal: Second break pattern so Reef must not only repeat wave-2 story.
+
+GitHub
+  - Branch: wave-3-auth-bug
+  - Change: When DEPLOY_WAVE=3, e.g.:
+      - Reject all logins with 401 Unauthorized, OR
+      - raise ValueError("invalid credentials schema") on /auth/login
+  - Fix checkout from wave 2 OR leave broken — your choice:
+      * Recommended: FIX checkout in wave 3 so only auth breaks (clearer signal)
+  - PR title: "wave-3: auth middleware strict mode (INTENTIONAL BUG FOR DEMO)"
+  - Merge after review
+  - Record: PR number ____ , merge time ____
+
+Vercel
+  - Set DEPLOY_WAVE=3
+  - Record: dpl________________
+
+Trigger errors
+  curl -X POST https://<prod>/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"user@demo.com","password":"wrong"}'
+
+Sentry (expected)
+  - NEW issue distinct from wave 2 (401 / ValueError / AuthenticationFailed)
+  - shortId: __________
+
+Slack
+  - Post wave-3 message — explicitly say "different from wave 2 checkout incident"
+
+Reef test query:
+  "Users cannot authenticate after the latest merge — correlate PRs, deploys,
+   and fatal errors."
+  Or vercel_url=dpl_<wave3>
+
+Expected Reef behavior:
+  - Should surface wave-3 PR, not wave-2, if timestamps/order correct
+  - Different error_message in sentry.issues row
+
+
+================================================================================
+PART 7 — SCENARIO MATRIX (what you're testing)
+================================================================================
+
+  Wave | Deploy OK? | Error type          | GitHub      | Sentry issue | Slack
+  -----|------------|---------------------|-------------|--------------|-------
+   1   | Yes        | None (control)      | PR#1 merge  | (none/min)   | INFO
+   2   | Yes        | TypeError checkout  | PR#2 merge  | CHECKOUT-*   | SEV-2
+   3   | Yes        | 401/ValueError auth | PR#3 merge  | AUTH-*       | SEV-1
+
+  Reef should:
+  - Wave 1: low confidence or "no strong regression"
+  - Wave 2: root cause → PR #2 + TypeError
+  - Wave 3: root cause → PR #3 + auth error (not checkout)
+
+
+================================================================================
+PART 8 — RUN REEF INVESTIGATIONS (after each wave)
+================================================================================
+
+8.1 UI — https://usereef.grandkojo.my
+    Use demo chips or custom query; wait for report (CLI Coral can take 1–3 min)
+
+8.2 CLI from laptop
+
+    BASE_URL=https://api-reef.grandkojo.my ./backend/scripts/simulate_triggers.sh dashboard
+
+    Or single trigger:
+
+    curl -X POST https://api-reef.grandkojo.my/api/v1/triggers/dashboard \
+      -H "Content-Type: application/json" \
+      -d '{
+        "query": "Sentry errors spiked after Vercel deploy dpl_WAVE2 — find regression.",
+        "vercel_url": "dpl_REPLACE_ME",
+        "context": {
+          "github_owner": "reef-demo-org",
+          "github_repo": "reef-incident-lab"
+        }
+      }'
+
+8.3 Check API logs on VM
+
+    docker compose logs -f api | grep -E "planner=|judge="
+
+    Expect: planner=llm:anthropic , judge=llm:anthropic (when keys set)
+
+8.4 Manual Coral sanity (on VM)
+
+    docker compose exec api coral sql \
+      "SELECT g.number, g.title, g.merged_at, s.title, s.level, s.first_seen \
+       FROM github.pulls g JOIN sentry.issues s ON s.first_seen >= g.merged_at \
+       WHERE g.owner = 'reef-demo-org' AND g.repo = 'reef-incident-lab' \
+       AND s.level IN ('fatal','error') ORDER BY s.first_seen DESC LIMIT 10"
+
+
+================================================================================
+PART 9 — LOG SHEET (fill as you run)
+================================================================================
+
+  Wave | PR # | Merged (UTC)     | dpl_id           | Sentry shortId | Reef inv_id
+  -----|------|------------------|------------------|----------------|------------
+   1   |      |                  |                  |                |
+   2   |      |                  |                  |                |
+   3   |      |                  |                  |                |
+
+  Reef scores (optional):
+  Wave | severity_score | root_cause correct? | cited right PR?
+  -----|----------------|---------------------|----------------
+   1   |                |                     |
+   2   |                |                     |
+   3   |                |                     |
+
+
+================================================================================
+PART 10 — TROUBLESHOOTING
+================================================================================
+
+  No github.pulls rows
+    → GITHUB_OWNER/REPO wrong; token lacks org access; merge was to wrong branch
+
+  No sentry.issues rows
+    → SENTRY_DSN not set on Vercel; errors not triggered; wrong SENTRY_ORG
+
+  Reef correlates wrong PR
+    → Waves too close together; add 30+ min between merges or use vercel_url filter
+
+  Coral setup fails
+    → Re-run setup_coral_sources.sh; check GLIBC image (python:3.12-slim-trixie)
+
+  CORS / Failed to fetch
+    → CORS_ORIGINS includes https://usereef.grandkojo.my; force-recreate api container
+
+  LLM planner/judge not used
+    → ANTHROPIC_API_KEY set + docker compose up -d --force-recreate api
+
+
+================================================================================
+PART 11 — OPTIONAL: MINIMAL api/index.py PSEUDOCODE
+================================================================================
+
+  import os
+  from fastapi import FastAPI, HTTPException
+  import sentry_sdk
+
+  sentry_sdk.init(dsn=os.environ["SENTRY_DSN"])
+  app = FastAPI()
+  WAVE = int(os.environ.get("DEPLOY_WAVE", "1"))
+
+  @app.get("/health")
+  def health():
+      return {"status": "ok", "wave": WAVE}
+
+  @app.post("/checkout")
+  def checkout(body: dict):
+      if WAVE == 2:
+          x = None
+          return {"total": x + 1}  # TypeError
+      return {"total": 99}
+
+  @app.post("/auth/login")
+  def login(body: dict):
+      if WAVE == 3:
+          raise HTTPException(status_code=401, detail="invalid credentials")
+      return {"token": "ok"}
+
+Copy this into reef-incident-lab and adapt to your Vercel Python handler pattern.
+
+
+================================================================================
+END — You now have 3 deployments, 3 PR cycles, 2 intentional error types, 1 control wave.
+================================================================================

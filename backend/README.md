@@ -50,7 +50,12 @@ Health check: `GET http://127.0.0.1:8000/health`
 | `SENTRY_TOKEN` | _(empty)_ | Remediation path only |
 | `SLACK_BOT_TOKEN` | _(empty)_ | Slack notifications + approval gate |
 | `SLACK_SIGNING_SECRET` | _(empty)_ | Slack slash-command verification |
-| `OPENAI_API_KEY` | _(empty)_ | Phase 4B LLM planner (leave empty for template planner) |
+| `PLANNER_LLM_PROVIDER` | `gemini` | `gemini` or `groq` for SQL planning |
+| `JUDGE_LLM_PROVIDER` | `groq` | `groq` (fast) or `gemini` for evidence judging |
+| `GEMINI_API_KEY` | _(empty)_ | Free — [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GROQ_API_KEY` | _(empty)_ | Free — [console.groq.com](https://console.groq.com/keys) |
+| `PLANNER_MODEL` | `gemini-2.5-flash` | Override planner model id |
+| `JUDGE_MODEL` | `llama-3.3-70b-versatile` | Override judge model id |
 
 ---
 
@@ -217,7 +222,7 @@ Trigger API
             ├─► PlannerService  → QueryPlan (SQL + rationale)
             ├─► QueryExecutor   → Coral CLI/mock → rows
             ├─► EvidenceStore   → persist query run (coral://query-run/{id})
-            └─► JudgeService    → update confidence + hypotheses
+            └─► JudgeService    → Groq/Gemini LLM or rules: confidence + hypotheses
                                   stop when confidence ≥ 0.6 + strong hypothesis
         └─► EscalationEngine   → flag missing ownership / conflicts
         └─► SeverityGate       → score (base + blast_radius + fatal_penalty + ownership_gap)

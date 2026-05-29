@@ -33,7 +33,8 @@ class SeverityGate:
         fatal_penalty = 0.15 if has_fatal else 0.0
 
         ownership_gap = not any(
-            h.text.lower().startswith("owner:") for h in state.hypotheses
+            h.text.lower().startswith(("owner:", "change_author:"))
+            for h in state.hypotheses
         )
         ownership_penalty = 0.05 if ownership_gap else 0.0
 

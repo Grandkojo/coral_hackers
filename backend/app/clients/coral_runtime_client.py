@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 
 from app.core.config import CoralMode, settings
@@ -143,18 +144,27 @@ class CoralQueryError(Exception):
 class CoralRuntimeClient:
     """Executes SQL via the Coral CLI subprocess or returns mock data for dev."""
 
+    def __init__(self, coral_config_dir: str | None = None) -> None:
+        self._coral_config_dir = coral_config_dir
+
     def query(self, sql: str) -> list[dict]:
         if settings.coral_mode == CoralMode.mock:
             logger.debug("coral[mock] sql=%.120s", sql)
             return _mock_query(sql)
 
         logger.info("coral[cli] sql=%.120s", sql)
+        env = None
+        if self._coral_config_dir:
+            env = os.environ.copy()
+            env["CORAL_CONFIG_DIR"] = self._coral_config_dir
+
         try:
             result = subprocess.run(
                 [settings.coral_binary, "sql", "--format", "json", sql],
                 capture_output=True,
                 text=True,
                 timeout=settings.coral_sql_timeout,
+                env=env,
             )
         except FileNotFoundError as exc:
             raise CoralQueryError(

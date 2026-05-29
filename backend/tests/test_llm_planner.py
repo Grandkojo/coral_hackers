@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 
-from app.clients.openai_client import LLMClientError
+from app.clients.llm_client import LLMClientError
+from app.clients.llm_json import parse_json_content
+from app.core.config import LlmProvider
 from app.schemas.investigation import InvestigationState, QueryPlan
 from app.services.llm_planner_service import LLMPlannerService
 from app.services.planner_service import PlannerService
@@ -23,14 +25,30 @@ def test_template_planner_uses_iteration_index() -> None:
 
 
 def test_planner_facade_uses_template_without_api_key() -> None:
-    with patch("app.services.planner_service.settings") as mock_settings:
-        mock_settings.openai_api_key = ""
+    with patch("app.services.planner_service.create_llm_client", return_value=None):
         planner = PlannerService()
         assert planner.mode == "template"
 
         state = InvestigationState(investigation_id="test")
         plan = planner.plan_next_query(state, "Why did checkout fail?")
         assert "coral.tables" in plan.sql.lower()
+
+
+def test_planner_facade_uses_gemini_when_configured() -> None:
+    llm = MagicMock()
+    llm.enabled = True
+    with (
+        patch("app.services.planner_service.create_llm_client", return_value=llm),
+        patch("app.services.planner_service.settings") as mock_settings,
+    ):
+        mock_settings.resolved_planner_llm_provider.return_value = LlmProvider.gemini
+        planner = PlannerService()
+        assert planner.mode == "llm:gemini"
+
+
+def test_parse_json_content_strips_markdown_fence() -> None:
+    parsed = parse_json_content('```json\n{"sql": "SELECT 1", "rationale": "ok"}\n```')
+    assert parsed["sql"] == "SELECT 1"
 
 
 def test_llm_planner_falls_back_on_error() -> None:

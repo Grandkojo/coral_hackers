@@ -50,6 +50,12 @@ export default function ReportPage() {
         <InvestigationHistory
           compact
           onSelect={(id) => void handleSelectHistoryItem(id)}
+          onDeleted={(id) => {
+            if (id === reportId || id === selectedInvestigationId) {
+              handleReset()
+              navigate(orgId ? `/${orgId}` : '/')
+            }
+          }}
           selectedId={selectedInvestigationId}
           refreshKey={historyRefreshKey}
         />
