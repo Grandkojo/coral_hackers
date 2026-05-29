@@ -41,7 +41,9 @@ class InvestigationOrchestrator:
         org_context: OrgContext | None = None,
     ) -> None:
         self._org_context = org_context
-        self._organization_id = org_context.organization_id if org_context else None
+        self._organization_id = (
+            org_context.persisted_organization_id() if org_context else None
+        )
         coral_dir = org_context.coral_config_dir if org_context else None
         self.planner = PlannerService()
         self.judge = JudgeService()
