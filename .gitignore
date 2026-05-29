@@ -1,5 +1,6 @@
 backend/.venv/
 backend/reef.db
+backend/data/
 backend/alembic.ini
 backend/alembic.egg-info/
 backend/alembic.egg-info/
@@ -21,3 +22,4 @@ frontend/*.sw?
 
 __pycache__/
 .env.production
+cf55b0407eca8330ff2ecf065bc44b7d6bcf514cbc948f2687f18bb321b1b2f9

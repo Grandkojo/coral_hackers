@@ -15,9 +15,16 @@ class EvidenceStore:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def create(self, state: InvestigationState, source: str, user_query: str) -> None:
+    def create(
+        self,
+        state: InvestigationState,
+        source: str,
+        user_query: str,
+        organization_id: str | None = None,
+    ) -> None:
         investigation = Investigation(
             id=state.investigation_id,
+            organization_id=organization_id,
             status=state.status.value,
             source=source,
             user_query=user_query,
@@ -83,13 +90,13 @@ class EvidenceStore:
     def get_investigation(self, investigation_id: str) -> Investigation | None:
         return self._db.get(Investigation, investigation_id)
 
-    def list_investigations(self, limit: int = 50) -> list[InvestigationSummary]:
-        rows = (
-            self._db.query(Investigation)
-            .order_by(Investigation.created_at.desc())
-            .limit(limit)
-            .all()
-        )
+    def list_investigations(
+        self, limit: int = 50, organization_id: str | None = None
+    ) -> list[InvestigationSummary]:
+        query = self._db.query(Investigation)
+        if organization_id:
+            query = query.filter(Investigation.organization_id == organization_id)
+        rows = query.order_by(Investigation.created_at.desc()).limit(limit).all()
         return [self._to_investigation_summary(row) for row in rows]
 
     def get_report(self, investigation_id: str) -> ReportSnapshot | None:
@@ -107,6 +114,14 @@ class EvidenceStore:
             .all()
         )
         return [self._to_query_run_response(run) for run in runs]
+
+    def delete_investigation(self, investigation_id: str) -> bool:
+        inv = self._db.get(Investigation, investigation_id)
+        if inv is None:
+            return False
+        self._db.delete(inv)
+        self._db.commit()
+        return True
 
     def approve_remediation(self, investigation_id: str) -> Investigation:
         inv = self._db.get(Investigation, investigation_id)

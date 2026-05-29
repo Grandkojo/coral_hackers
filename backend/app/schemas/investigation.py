@@ -26,12 +26,16 @@ class InvestigationState(BaseModel):
     status: InvestigationStatus = InvestigationStatus.running
     iteration_count: int = 0
     query_plans: list[QueryPlan] = Field(default_factory=list)
+    query_row_counts: list[int] = Field(default_factory=list)
+    last_query_row_count: int | None = None
     evidence_rows: list[dict] = Field(default_factory=list)
     hypotheses: list[Hypothesis] = Field(default_factory=list)
     confidence_score: float = 0.0
     root_cause: str | None = None
     escalation_flags: dict[str, bool] = Field(default_factory=dict)
     trigger_context: dict[str, str] = Field(default_factory=dict)
+    github_queries_executed: int = 0
+    github_rate_limited: bool = False
 
 
 class InvestigationSummary(BaseModel):

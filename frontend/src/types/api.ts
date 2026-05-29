@@ -22,6 +22,9 @@ export interface ReportResponse {
   severity_score: number
   remediation_mode: string
   root_cause: string | null
+  github_queries_executed: number
+  github_queries_max: number
+  github_rate_limited: boolean
 }
 
 export interface QueryRunResponse {

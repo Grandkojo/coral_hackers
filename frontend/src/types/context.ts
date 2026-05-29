@@ -19,8 +19,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string, orgName: string) => Promise<void>
+  login: (email: string, password: string) => Promise<import('./auth').User>
+  signup: (email: string, password: string, orgName: string) => Promise<import('./auth').User>
   logout: () => void
   clearError: () => void
 }

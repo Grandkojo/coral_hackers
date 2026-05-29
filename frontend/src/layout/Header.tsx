@@ -1,16 +1,28 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { FiGlobe } from 'react-icons/fi'
 import ThemeToggle from '../components/ThemeToggle'
+import { useAuth } from '../hooks/useAuth'
 
 export default function Header() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { isAuthenticated, user, logout } = useAuth()
 
   const handleIntegrate = () => {
+    if (isAuthenticated && user) {
+      navigate(`/${user.orgId}/settings`)
+      return
+    }
     navigate('/signup')
   }
 
   const handleHome = () => {
+    if (isAuthenticated && user) {
+      if (location.pathname !== `/${user.orgId}`) {
+        navigate(`/${user.orgId}`)
+      }
+      return
+    }
     if (location.pathname !== '/') {
       navigate('/')
     }
@@ -46,15 +58,38 @@ export default function Header() {
         </div>
 
         <div className="site-header-actions">
+          {isAuthenticated && user ? (
+            <span className="header-org-label">{user.orgName}</span>
+          ) : null}
           <button
             type="button"
             className="btn btn-ghost header-nav-btn"
             onClick={handleIntegrate}
-            title="Integrate into your organization"
+            title="Organization integrations"
           >
             <FiGlobe />
-            <span>Integrate</span>
+            <span>{isAuthenticated ? 'Integrations' : 'Integrate'}</span>
           </button>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className="btn btn-ghost header-nav-btn"
+              onClick={() => {
+                logout()
+                navigate('/login')
+              }}
+            >
+              Sign out
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost header-nav-btn"
+              onClick={() => navigate('/login')}
+            >
+              Sign in
+            </button>
+          )}
           <ThemeToggle />
         </div>
       </div>

@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
+from app.core.config import CoralMode, settings
 from app.main import app
 from app.schemas.report import ReportResponse
 
@@ -20,7 +21,8 @@ SAMPLE_REPORT = ReportResponse(
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setattr(settings, "coral_mode", CoralMode.mock)
     return TestClient(app)
 
 

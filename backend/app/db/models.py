@@ -1,5 +1,6 @@
 import datetime
 import json
+import uuid
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -9,10 +10,71 @@ class Base(DeclarativeBase):
     pass
 
 
+def _uuid() -> str:
+    return str(uuid.uuid4())
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    name = Column(String, nullable=False)
+    slug = Column(String, unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
+    integration = relationship(
+        "OrganizationIntegration",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    investigations = relationship("Investigation", back_populates="organization")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    organization_id = Column(String, ForeignKey("organizations.id"), nullable=False, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
+    full_name = Column(String, default="")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    organization = relationship("Organization", back_populates="users")
+
+
+class OrganizationIntegration(Base):
+    """Per-tenant integration credentials (secrets stored encrypted)."""
+
+    __tablename__ = "organization_integrations"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    organization_id = Column(
+        String, ForeignKey("organizations.id"), unique=True, nullable=False, index=True
+    )
+    github_token_enc = Column(Text, default="")
+    github_owner = Column(String, default="")
+    github_repo = Column(String, default="")
+    github_account_type = Column(String, default="org")
+    sentry_org = Column(String, default="")
+    sentry_token_enc = Column(Text, default="")
+    slack_token_enc = Column(Text, default="")
+    slack_incident_channel = Column(String, default="incidents")
+    vercel_token_enc = Column(Text, default="")
+    coral_config_dir = Column(String, default="")
+    coral_ready = Column(String, default="false")  # "true" | "false"
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    organization = relationship("Organization", back_populates="integration")
+
+
 class Investigation(Base):
     __tablename__ = "investigations"
 
     id = Column(String, primary_key=True)
+    organization_id = Column(String, ForeignKey("organizations.id"), nullable=True, index=True)
     status = Column(String, default="running")  # running | complete | failed
     source = Column(String)
     user_query = Column(Text)
@@ -37,6 +99,7 @@ class Investigation(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    organization = relationship("Organization", back_populates="investigations")
 
 
 class QueryRun(Base):

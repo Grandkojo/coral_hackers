@@ -35,6 +35,30 @@ def test_normalize_dashboard_vercel_url_generates_query() -> None:
     assert "dpl_test123" in trigger.query
 
 
+def test_normalize_dashboard_maps_numeric_incident_id_to_sentry_issue_id() -> None:
+    trigger = normalize_dashboard(
+        DashboardTriggerRequest(
+            query="Checkout TypeError after deploy",
+            incident_id="123540686",
+            vercel_url="dpl_test123",
+        )
+    )
+    assert trigger.context["sentry_issue_id"] == "123540686"
+    assert trigger.context["incident_ref"] == "123540686"
+
+
+def test_normalize_dashboard_ignores_non_numeric_incident_id() -> None:
+    trigger = normalize_dashboard(
+        DashboardTriggerRequest(
+            query="Checkout errors",
+            incident_id="ab4b94a00b6cf3b4",
+            vercel_url="dpl_test123",
+        )
+    )
+    assert "sentry_issue_id" not in trigger.context
+    assert trigger.context["incident_ref"] == "ab4b94a00b6cf3b4"
+
+
 def test_parse_sentry_webhook_issue_created_format() -> None:
     payload = {
         "action": "created",

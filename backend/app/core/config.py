@@ -13,6 +13,14 @@ class GitHubAccountType(str, Enum):
     org = "org"
 
 
+class LlmProvider(str, Enum):
+    gemini = "gemini"
+    groq = "groq"
+    # Legacy paid providers (optional; not used by default)
+    openai = "openai"
+    anthropic = "anthropic"
+
+
 class Settings(BaseSettings):
     app_name: str = "Reef"
     app_env: str = "development"
@@ -27,6 +35,7 @@ class Settings(BaseSettings):
     coral_binary: str = "coral"
     coral_sql_timeout: int = 30
     max_investigation_iterations: int = 5
+    max_github_queries_per_investigation: int = 2
 
     # Decision thresholds
     confidence_threshold: float = 0.6
@@ -45,14 +54,57 @@ class Settings(BaseSettings):
     slack_signing_secret: str = ""
     vercel_token: str = ""
 
-    # LLM planner (Phase 4B — optional)
+    # Sentry webhook → background investigation + Slack notify
+    webhook_organization_id: str = ""
+    frontend_base_url: str = ""
+
+    # LLM planner + judge (free tier: Gemini + Groq — leave keys empty for template/rules)
+    planner_llm_provider: LlmProvider = LlmProvider.gemini
+    judge_llm_provider: LlmProvider = LlmProvider.groq
+    planner_model: str = ""
+    judge_model: str = ""
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+
+    # Legacy paid LLM keys (commented out in .env.example — not required for demo)
+    anthropic_api_key: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
     # Comma-separated browser origins allowed to call the API (Vercel frontend, local dev)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # Organization sessions (JWT) and encrypted tenant credentials
+    jwt_secret: str = "change-me-in-production"
+    credentials_encryption_key: str = ""
+    auth_required: bool = False
+    coral_orgs_base_dir: str = "./data/coral/orgs"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    def resolved_planner_llm_provider(self) -> LlmProvider:
+        return self.planner_llm_provider
+
+    def resolved_judge_llm_provider(self) -> LlmProvider:
+        return self.judge_llm_provider
+
+    def resolved_planner_model(self) -> str:
+        if self.planner_model.strip():
+            return self.planner_model.strip()
+        if self.planner_llm_provider == LlmProvider.gemini:
+            return "gemini-2.5-flash"
+        return "llama-3.3-70b-versatile"
+
+    def resolved_judge_model(self) -> str:
+        if self.judge_model.strip():
+            return self.judge_model.strip()
+        if self.judge_llm_provider == LlmProvider.groq:
+            return "llama-3.3-70b-versatile"
+        return "gemini-2.5-flash"
 
 
 settings = Settings()

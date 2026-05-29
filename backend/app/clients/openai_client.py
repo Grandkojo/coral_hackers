@@ -1,23 +1,22 @@
-import json
-
 import httpx
 
+from app.clients.llm_client import LLMClientError
+from app.clients.llm_json import parse_json_content
 from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-
-class LLMClientError(Exception):
-    pass
+_DEFAULT_MODEL = "gpt-4o-mini"
 
 
 class OpenAIClient:
-    """Minimal OpenAI chat-completions client for structured planner output."""
+    """Legacy paid OpenAI API — not used by default (see Gemini/Groq in llm_factory)."""
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self._api_key = api_key if api_key is not None else settings.openai_api_key
-        self._model = model if model is not None else settings.openai_model
+        resolved = (model or settings.resolved_planner_model()).strip()
+        self._model = resolved or _DEFAULT_MODEL
 
     @property
     def enabled(self) -> bool:
@@ -59,15 +58,4 @@ class OpenAIClient:
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMClientError("Unexpected OpenAI response shape.") from exc
 
-        return _parse_json_content(content)
-
-
-def _parse_json_content(content: str) -> dict:
-    try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise LLMClientError(f"Could not parse LLM JSON: {content[:200]}") from exc
-
-    if not isinstance(parsed, dict):
-        raise LLMClientError("LLM response must be a JSON object.")
-    return parsed
+        return parse_json_content(content)

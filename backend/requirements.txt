@@ -8,3 +8,7 @@ psycopg[binary]
 pytest
 pytest-asyncio
 anyio
+PyJWT
+bcrypt
+cryptography
+email-validator

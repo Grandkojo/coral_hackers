@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { ReportResponse } from '../types/index'
 import { approveRemediation } from '../api/investigations'
+import { dedupeStrings, parseCitationRunId } from '../lib/reportFormat'
 import PixelCard from './PixelCard'
 import QueryEvidencePanel from './QueryEvidencePanel'
+import ReportTimeline from './ReportTimeline'
+import GithubBudgetHint from './GithubBudgetHint'
 import SeverityBar from './SeverityBar'
 import StatusBadge from './StatusBadge'
 import type { BadgeVariant } from './StatusBadge'
@@ -12,17 +15,26 @@ interface ReportPanelProps {
   onReset: () => void
 }
 
-function remediationBadge(mode: string): { variant: BadgeVariant, label: string } {
+function remediationBadge(mode: string): { variant: BadgeVariant; label: string } {
   return mode === 'autonomous_fix'
     ? { variant: 'autonomous', label: 'Autonomous fix' }
-    : { variant: 'human-paired', label: 'Human approval req' }
+    : { variant: 'human-paired', label: 'Human approval required' }
 }
 
 export default function ReportPanel({ report, onReset }: ReportPanelProps) {
   const badge = remediationBadge(report.remediation_mode)
+  const suspects = dedupeStrings(report.suspects)
   const [approved, setApproved] = useState(false)
   const [approving, setApproving] = useState(false)
   const [approveError, setApproveError] = useState<string | null>(null)
+  const [highlightRunId, setHighlightRunId] = useState<number | null>(null)
+
+  const scrollToQueryRun = useCallback((runId: number) => {
+    setHighlightRunId(runId)
+    const el = document.getElementById(`query-run-${runId}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.setTimeout(() => setHighlightRunId(null), 2400)
+  }, [])
 
   async function handleApprove() {
     setApproveError(null)
@@ -37,157 +49,174 @@ export default function ReportPanel({ report, onReset }: ReportPanelProps) {
     }
   }
 
+  const iterationCount = report.timeline.filter((e) =>
+    /^Iteration\s+\d+/i.test(e),
+  ).length
+
   return (
-    <div className="space-y-5 fade-up">
-      <PixelCard
-        title="Incident Report"
-        titleRight={<StatusBadge label={badge.label} variant={badge.variant} />}
-      >
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span className="label shrink-0">Session</span>
-          <span className="data-val font-mono text-[0.68rem] break-all">{report.investigation_id}</span>
-        </div>
-
-        <div className="mb-6">
+    <div className="report-panel fade-up">
+      <div className="report-summary-grid">
+        <PixelCard
+          className="report-summary-card"
+          title="Incident Report"
+          titleRight={<StatusBadge label={badge.label} variant={badge.variant} />}
+        >
+          <div className="report-meta-row">
+            <span className="label">Session</span>
+            <code className="report-session-id">{report.investigation_id}</code>
+          </div>
           <SeverityBar score={report.severity_score} />
-        </div>
+          <GithubBudgetHint
+            used={report.github_queries_executed ?? 0}
+            max={report.github_queries_max ?? 2}
+            rateLimited={report.github_rate_limited ?? false}
+            variant="report"
+          />
+        </PixelCard>
 
-        {report.root_cause ? (
+        <div className="report-stats">
+          <div className="report-stat">
+            <span className="report-stat-value">{iterationCount}</span>
+            <span className="report-stat-label">Iterations</span>
+          </div>
+          <div className="report-stat">
+            <span className="report-stat-value">{suspects.length}</span>
+            <span className="report-stat-label">Suspects</span>
+          </div>
+          <div className="report-stat">
+            <span className="report-stat-value">{report.citations.length}</span>
+            <span className="report-stat-label">Citations</span>
+          </div>
+          <div className="report-stat">
+            <span className="report-stat-value">{report.unresolved_gaps.length}</span>
+            <span className="report-stat-label">Gaps</span>
+          </div>
           <div
-            className="p-4 mb-6"
-            style={{
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-            }}
+            className={`report-stat report-stat-github${
+              report.github_rate_limited ? ' report-stat-github--limited' : ''
+            }`}
           >
-            <span className="label block mb-2" style={{ color: 'var(--green)' }}>
-              Root cause
+            <span className="report-stat-value">
+              {report.github_queries_executed ?? 0}/{report.github_queries_max ?? 2}
             </span>
-            <p className="font-mono text-[0.68rem] leading-relaxed" style={{ color: 'var(--ink-2)' }}>
-              {report.root_cause}
-            </p>
-          </div>
-        ) : null}
-
-        <hr className="divider mb-6" />
-
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-          <div>
-            <span
-              className="label block mb-3"
-              style={{ color: 'var(--blue)' }}
-            >
-              Timeline
-            </span>
-            <ul className="space-y-2.5">
-              {report.timeline.map((entry, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 font-mono text-[0.64rem] leading-relaxed"
-                  style={{ animation: `slide-in-row 280ms ${i * 60}ms ease-out both` }}
-                >
-                  <span style={{ color: 'var(--blue)', flexShrink: 0 }}>›</span>
-                  <span style={{ color: 'var(--ink-2)' }}>{entry}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <span
-              className="label block mb-3"
-              style={{ color: 'var(--red)' }}
-            >
-              Suspects
-            </span>
-            <ul className="space-y-2.5">
-              {report.suspects.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 font-mono text-[0.64rem] leading-relaxed"
-                  style={{ animation: `slide-in-row 280ms ${i * 60 + 40}ms ease-out both` }}
-                >
-                  <span style={{ color: 'var(--red)', flexShrink: 0 }}>!</span>
-                  <span style={{ color: 'var(--ink-2)' }}>{s}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <span
-              className="label block mb-3"
-              style={{ color: 'var(--accent)' }}
-            >
-              Citations
-            </span>
-            <ul className="space-y-2.5">
-              {report.citations.map((c, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 font-mono text-[0.64rem] leading-relaxed"
-                  style={{ animation: `slide-in-row 280ms ${i * 60 + 80}ms ease-out both` }}
-                >
-                  <span style={{ color: 'var(--accent)', flexShrink: 0 }}>#</span>
-                  <span style={{ color: 'var(--accent)' }}>{c}</span>
-                </li>
-              ))}
-            </ul>
+            <span className="report-stat-label">GitHub queries</span>
           </div>
         </div>
+      </div>
 
-        {report.unresolved_gaps.length > 0 ? (
-          <div
-            className="p-4 mb-6 space-y-2"
-            style={{
-              border: '1px solid var(--amber-dim)',
-              background: 'var(--amber-dim)',
-              borderColor: 'var(--amber)',
-            }}
-          >
-            <span className="label block" style={{ color: 'var(--amber)' }}>
-              Unresolved gaps
-            </span>
-            {report.unresolved_gaps.map((gap, i) => (
-              <p key={i} className="font-mono text-[0.64rem]" style={{ color: 'var(--amber)' }}>
-                — {gap}
-              </p>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center sm:justify-between gap-3 pt-1">
-          <button className="btn btn-ghost justify-center sm:justify-start" onClick={onReset}>
-            New investigation
-          </button>
-
-          {report.remediation_mode === 'autonomous_fix' ? (
-            <button className="btn btn-primary justify-center" disabled>
-              Autonomous fix eligible
-            </button>
-          ) : approved ? (
-            <button className="btn btn-primary justify-center" disabled>
-              Remediation approved
-            </button>
-          ) : (
-            <button
-              className="btn btn-primary justify-center"
-              onClick={() => void handleApprove()}
-              disabled={approving}
-            >
-              {approving ? 'Approving…' : 'Approve remediation'}
-            </button>
-          )}
+      {report.root_cause ? (
+        <div className="report-root-cause">
+          <span className="label report-section-label">Root cause</span>
+          <p className="report-root-cause-text">{report.root_cause}</p>
         </div>
-
-        {approveError ? (
-          <p className="font-mono text-[0.62rem] mt-3" style={{ color: 'var(--red)' }}>
-            {approveError}
+      ) : (
+        <div className="report-root-cause report-root-cause-missing">
+          <span className="label report-section-label">Root cause</span>
+          <p className="report-root-cause-text">
+            Not finalized — review evidence below and unresolved gaps.
           </p>
-        ) : null}
-      </PixelCard>
+        </div>
+      )}
 
-      <QueryEvidencePanel investigationId={report.investigation_id} />
+      <div className="report-sections">
+        <section className="report-section">
+          <div className="report-section-head">
+            <h2 className="report-section-title">Investigation steps</h2>
+            <span className="report-section-hint">Expand each step for full planner rationale</span>
+          </div>
+          <ReportTimeline entries={report.timeline} />
+        </section>
+
+        <section className="report-section">
+          <div className="report-section-head">
+            <h2 className="report-section-title">Leading suspects</h2>
+            <span className="report-section-hint">Deduplicated hypotheses from Coral evidence</span>
+          </div>
+          {suspects.length === 0 ? (
+            <p className="report-empty">No suspects identified from query results.</p>
+          ) : (
+            <ul className="report-suspects-list">
+              {suspects.map((suspect, i) => (
+                <li key={i} className="report-suspect-card">
+                  <span className="report-suspect-index">{i + 1}</span>
+                  <p className="report-suspect-text">{suspect}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {report.citations.length > 0 ? (
+          <section className="report-section">
+            <div className="report-section-head">
+              <h2 className="report-section-title">Evidence citations</h2>
+              <span className="report-section-hint">Jump to matching query below</span>
+            </div>
+            <div className="report-citation-chips">
+              {report.citations.map((citation, i) => {
+                const runId = parseCitationRunId(citation)
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="report-citation-chip"
+                    disabled={runId === null}
+                    onClick={() => runId !== null && scrollToQueryRun(runId)}
+                    title={runId !== null ? 'View query evidence' : citation}
+                  >
+                    {runId !== null ? `Query #${runId}` : citation}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
+      </div>
+
+      {report.unresolved_gaps.length > 0 ? (
+        <div className="report-gaps" role="alert">
+          <span className="label report-section-label">Unresolved gaps</span>
+          <ul className="report-gaps-list">
+            {report.unresolved_gaps.map((gap, i) => (
+              <li key={i}>{gap}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="report-actions">
+        <button type="button" className="btn btn-ghost" onClick={onReset}>
+          New investigation
+        </button>
+
+        {report.remediation_mode === 'autonomous_fix' ? (
+          <button type="button" className="btn btn-primary" disabled>
+            Autonomous fix eligible
+          </button>
+        ) : approved ? (
+          <button type="button" className="btn btn-primary" disabled>
+            Remediation approved
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => void handleApprove()}
+            disabled={approving}
+          >
+            {approving ? 'Approving…' : 'Approve remediation'}
+          </button>
+        )}
+      </div>
+
+      {approveError ? (
+        <p className="report-error">{approveError}</p>
+      ) : null}
+
+      <QueryEvidencePanel
+        investigationId={report.investigation_id}
+        highlightRunId={highlightRunId}
+      />
     </div>
   )
 }

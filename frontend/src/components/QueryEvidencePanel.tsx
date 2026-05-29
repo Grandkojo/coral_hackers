@@ -5,6 +5,7 @@ import PixelCard from './PixelCard'
 
 interface QueryEvidencePanelProps {
   investigationId: string
+  highlightRunId?: number | null
 }
 
 function formatCell(value: unknown): string {
@@ -13,14 +14,20 @@ function formatCell(value: unknown): string {
   return String(value)
 }
 
-function QueryRunCard({ run }: { run: QueryRunResponse }) {
-  const [open, setOpen] = useState(run.iteration === 0)
+function QueryRunCard({
+  run,
+  highlighted,
+}: {
+  run: QueryRunResponse
+  highlighted?: boolean
+}) {
+  const [open, setOpen] = useState(run.row_count > 0 || run.iteration <= 1)
   const columns = run.rows.length > 0 ? Object.keys(run.rows[0]) : []
 
   return (
     <div
-      className="border"
-      style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}
+      id={`query-run-${run.id}`}
+      className={`query-run-card ${highlighted ? 'query-run-card-highlight' : ''}`}
     >
       <button
         type="button"
@@ -31,7 +38,7 @@ function QueryRunCard({ run }: { run: QueryRunResponse }) {
           <span className="label shrink-0" style={{ color: 'var(--blue)' }}>
             Iter {run.iteration + 1}
           </span>
-          <span className="font-mono text-[0.64rem] truncate" style={{ color: 'var(--ink-2)' }}>
+          <span className="query-run-rationale">
             {run.rationale ?? 'Coral query'}
           </span>
         </div>
@@ -115,7 +122,10 @@ function QueryRunCard({ run }: { run: QueryRunResponse }) {
   )
 }
 
-export default function QueryEvidencePanel({ investigationId }: QueryEvidencePanelProps) {
+export default function QueryEvidencePanel({
+  investigationId,
+  highlightRunId = null,
+}: QueryEvidencePanelProps) {
   const [queryRuns, setQueryRuns] = useState<QueryRunResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -171,7 +181,11 @@ export default function QueryEvidencePanel({ investigationId }: QueryEvidencePan
       {!loading && !error && queryRuns.length > 0 ? (
         <div className="space-y-3">
           {queryRuns.map((run) => (
-            <QueryRunCard key={run.id} run={run} />
+            <QueryRunCard
+              key={run.id}
+              run={run}
+              highlighted={highlightRunId === run.id}
+            />
           ))}
         </div>
       ) : null}

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { AiOutlineLoading3Quarters } from 'react-icons/ai'
+import { AiOutlineDelete, AiOutlineLoading3Quarters } from 'react-icons/ai'
 import type { InvestigationSummary } from '../types/index'
-import { fetchInvestigations } from '../api/investigations'
+import { deleteInvestigation, fetchInvestigations } from '../api/investigations'
 
 interface InvestigationHistoryProps {
   onSelect: (investigationId: string) => void | Promise<void>
+  onDeleted?: (investigationId: string) => void
   selectedId?: string | null
   refreshKey?: number
   compact?: boolean
@@ -38,6 +39,7 @@ const INITIAL_VISIBLE = 5
 
 export default function InvestigationHistory({
   onSelect,
+  onDeleted,
   selectedId,
   refreshKey = 0,
   compact = false,
@@ -47,6 +49,7 @@ export default function InvestigationHistory({
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     setShowAll(false)
@@ -83,6 +86,28 @@ export default function InvestigationHistory({
   const hiddenCount = Math.max(0, items.length - INITIAL_VISIBLE)
   const visibleItems =
     showAll || hiddenCount === 0 ? items : items.slice(0, INITIAL_VISIBLE)
+
+  async function handleDelete(investigationId: string) {
+    const label = truncate(
+      items.find((i) => i.investigation_id === investigationId)?.user_query ||
+        'this investigation',
+      48,
+    )
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) {
+      return
+    }
+    setDeletingId(investigationId)
+    setError(null)
+    try {
+      await deleteInvestigation(investigationId)
+      setItems((prev) => prev.filter((i) => i.investigation_id !== investigationId))
+      onDeleted?.(investigationId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete investigation')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className={`card history-panel ${compact ? 'history-panel-compact' : ''}`}>
@@ -122,12 +147,14 @@ export default function InvestigationHistory({
 
                 const isLoading = loadingId === item.investigation_id
 
+                const isDeleting = deletingId === item.investigation_id
+
                 return (
-                  <li key={item.investigation_id}>
+                  <li key={item.investigation_id} className="history-list-row">
                     <button
                       type="button"
                       className={`history-item ${isSelected ? 'history-item-selected' : ''} ${isLoading ? 'history-item-loading' : ''}`}
-                      disabled={loadingId !== null}
+                      disabled={loadingId !== null || deletingId !== null}
                       onClick={async () => {
                         flushSync(() => setLoadingId(item.investigation_id))
                         try {
@@ -156,6 +183,20 @@ export default function InvestigationHistory({
                           <span>{item.approved_at ? 'approved' : 'needs approval'}</span>
                         ) : null}
                       </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost history-delete-btn"
+                      title="Delete investigation"
+                      aria-label="Delete investigation"
+                      disabled={loadingId !== null || (deletingId !== null && !isDeleting)}
+                      onClick={() => void handleDelete(item.investigation_id)}
+                    >
+                      {isDeleting ? (
+                        <AiOutlineLoading3Quarters className="spin" />
+                      ) : (
+                        <AiOutlineDelete />
+                      )}
                     </button>
                   </li>
                 )

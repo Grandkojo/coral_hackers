@@ -23,4 +23,7 @@ export const MOCK_REPORT_BASE: Omit<ReportResponse, 'investigation_id'> = {
   severity_score: 0.72,
   remediation_mode: 'human_agent_paired',
   root_cause: 'PR #234 auth-middleware refactor correlated with fatal AuthenticationError spike after deploy dpl_9e2xk.',
+  github_queries_executed: 1,
+  github_queries_max: 2,
+  github_rate_limited: false,
 }

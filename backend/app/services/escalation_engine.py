@@ -6,7 +6,9 @@ class EscalationEngine:
 
     def evaluate(self, state: InvestigationState) -> dict[str, bool]:
         has_owner = any(
-            h.text.lower().startswith("owner:") for h in state.hypotheses
+            h.text.lower().startswith("owner:")
+            or h.text.lower().startswith("change_author:")
+            for h in state.hypotheses
         )
         high_confidence_hypotheses = [
             h for h in state.hypotheses if h.confidence >= 0.5

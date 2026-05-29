@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DashboardTriggerRequest } from "../types/index";
+import GithubBudgetHint from "./GithubBudgetHint";
 
 interface InvestigationFormProps {
   onSubmit: (req: DashboardTriggerRequest) => void;
@@ -138,6 +139,7 @@ export default function InvestigationForm({
             Describe the incident in plain English — GitHub, Sentry, Slack,
             and Vercel correlated via Coral.
           </p>
+          <GithubBudgetHint used={0} max={2} variant="form" />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -155,7 +157,8 @@ export default function InvestigationForm({
               disabled={isSubmitting}
             />
             <p className="field-hint">
-              Optional — paste a deploy link to anchor the investigation
+              Recommended — Reef auto-finds Sentry issues after this deploy. Best
+              results with deploy + numeric Sentry id together.
             </p>
           </div>
 
@@ -167,13 +170,14 @@ export default function InvestigationForm({
               id="incident-id"
               type="text"
               className="field-input"
-              placeholder="PYTHON-FASTAPI-1"
+              placeholder="123540686"
               value={incidentId}
               onChange={(e) => setIncidentId(e.target.value)}
               disabled={isSubmitting}
             />
             <p className="field-hint">
-              Optional — Sentry short ID or internal ticket ref
+              Optional — numeric id from the Sentry issue URL (not event UUID).
+              Omit if you pasted a Vercel deploy id; Reef discovers the issue after deploy.
             </p>
           </div>
         </div>

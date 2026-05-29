@@ -13,8 +13,8 @@ class QueryExecutionError(Exception):
 class QueryExecutor:
     """Validates, executes, and normalizes Coral SQL queries."""
 
-    def __init__(self) -> None:
-        self._client = CoralRuntimeClient()
+    def __init__(self, coral_config_dir: str | None = None) -> None:
+        self._client = CoralRuntimeClient(coral_config_dir=coral_config_dir)
 
     def execute(self, sql: str) -> list[dict]:
         self._guard_read_only(sql)

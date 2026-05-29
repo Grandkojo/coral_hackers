@@ -68,6 +68,15 @@ def parse_sentry_webhook(payload: dict[str, Any]) -> dict[str, str]:
     )
     level = str(issue.get("level") or event.get("level") or payload.get("level") or "error")
 
+    sentry_org_slug = ""
+    for key in ("organization", "installation"):
+        block = payload.get(key)
+        if isinstance(block, dict) and block.get("slug"):
+            sentry_org_slug = str(block["slug"]).strip()
+            break
+    if not sentry_org_slug and isinstance(payload.get("organization"), str):
+        sentry_org_slug = str(payload["organization"]).strip()
+
     context: dict[str, str] = {
         "trigger_type": "sentry_webhook",
         "sentry_issue_id": issue_id,
@@ -75,6 +84,7 @@ def parse_sentry_webhook(payload: dict[str, Any]) -> dict[str, str]:
         "sentry_project": project_slug,
         "sentry_level": level,
         "sentry_title": title,
+        "sentry_org_slug": sentry_org_slug,
     }
     return {k: v for k, v in context.items() if v}
 
@@ -100,6 +110,13 @@ def normalize_dashboard(payload: DashboardTriggerRequest) -> "TriggerRequest":
         context["trigger_type"] = "vercel_deployment"
         if payload.vercel_url:
             context["vercel_url"] = payload.vercel_url.strip()
+
+    if payload.incident_id:
+        raw_incident = payload.incident_id.strip()
+        context["incident_ref"] = raw_incident
+        # Sentry Coral issues.id is numeric — ignore event UUIDs / hashes from the UI.
+        if raw_incident.isdigit() and not context.get("sentry_issue_id"):
+            context["sentry_issue_id"] = raw_incident
 
     query = payload.query.strip()
     if not query and deployment_id:
