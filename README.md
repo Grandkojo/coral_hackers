@@ -1,6 +1,6 @@
 # Reef — Production Incident Intelligence Agent
 
-**Reef compresses hours of cross-tool incident triage into a single investigation workflow.** It correlates signals across GitHub, Sentry, Vercel, and Slack, identifies a root cause, and either remediates autonomously or brings a human into the loop, based on severity.
+**Reef compresses hours of cross-tool incident triage into a single investigation workflow.** It correlates signals across GitHub, Sentry, Vercel, and Slack, identifies a root cause, and either remediates autonomously or brings a human into the loop based on severity.
 
 ---
 
@@ -14,7 +14,7 @@ When something breaks in production, engineers spend hours manually stitching to
 - Who owns the affected service?
 - Did a Vercel deployment go out in that window?
 
-The information is scattered across multiple tools, so engineers have to piece together the timeline manually. By the time the root cause is identified, the incident has often already caused significant impact.
+The information is scattered. The timeline is reconstructed by hand. Root cause is found long after the blast radius has grown.
 
 **Reef automates the entire investigation.**
 
@@ -22,13 +22,11 @@ The information is scattered across multiple tools, so engineers have to piece t
 
 ## How Reef Works
 
-Reef runs a stateful investigation loop powered by [Coral](https://withcoral.ai). An SQL runtime that JOINs across GitHub, Sentry, Slack, and Vercel in a single query, with no ETL and no data leaving your machine.
-
-Here is what a full investigation looks like:
+Reef runs a stateful investigation loop powered by [Coral](https://withcoral.ai) — a SQL runtime that JOINs across GitHub, Sentry, Slack, and Vercel in a single query, with no ETL and no data leaving your machine.
 
 **1. Trigger**: An incident arrives via the Reef dashboard, a Sentry webhook, or a `/reef` Slack slash command in your incident channel.
 
-**2. Plan**: The Gemini planner LLM receives the full investigation context and decides which Coral SQL query to run next. It generates both the SQL and a rationale for why that query is the right next question.
+**2. Plan**: The Gemini planner LLM receives the full investigation context and decides which Coral SQL query to run next, along with a rationale.
 
 **3. Execute**: Reef passes the query to Coral, which resolves data locally from your connected sources. Data never gets stuffed into the agent context.
 
@@ -36,13 +34,13 @@ Here is what a full investigation looks like:
 
 **5. Repeat**: If confidence is below the threshold (default: 0.6), the planner generates the next query. The loop runs for up to 5 iterations.
 
-**6. Escalate**: The escalation engine flags unresolved gaps: missing CODEOWNERS match, conflicting hypotheses, or insufficient evidence rows.
+**6. Escalate**: The escalation engine flags unresolved gaps: missing CODEOWNERS match, conflicting hypotheses, or insufficient evidence.
 
 **7. Gate**: The severity gate applies a weighted score and decides: autonomous fix, or human approval required.
 
 **8. Report**: Reef produces a structured report with a full timeline, suspected PRs, Coral query citations, and unresolved gaps.
 
-Here is an example of a Coral query Reef generates during an investigation:
+Example Coral query generated during an investigation:
 
 ```sql
 SELECT g.title, s.error_message, sl.text
@@ -61,65 +59,30 @@ One query. Three sources. No ETL.
 
 ## Platform Integrations
 
-Reef connects to four platforms. Each one plays a different role across investigation and remediation.
+| Platform | Investigation role | Trigger / Remediation |
+|----------|-------------------|-----------------------|
+| **GitHub** | PR and commit correlation, CODEOWNERS ownership lookup | Revert PR on the suspected commit in autonomous mode |
+| **Sentry** | Error correlation by timestamp, fatal error severity weighting | Webhook trigger — new issue auto-starts an investigation |
+| **Vercel** | Deployment timeline correlation, incident window anchoring | Rollback the identified deployment in autonomous mode |
+| **Slack** | Incident thread context and on-call discussion history | `/reef` slash command trigger · Human approval gate for high-severity remediation |
 
-### GitHub
-
-**In investigation:** Reef queries `github.pull_requests` and `github.commits` to find changes that landed before the incident window. It uses `github.collaborators` or `github.teams` (based on your account type) to resolve service ownership via CODEOWNERS.
-
-**In remediation:** Reef can open a revert PR against the suspected commit when operating in autonomous mode.
-
-### Sentry
-
-**In investigation:** Reef reads Sentry issues correlated by timestamp with recent deploys and PRs. Fatal error level adds a penalty to the severity score. Stack traces are included in query results for deeper signal.
-
-**As a trigger:** Configure a Sentry Internal Integration to POST to Reef's webhook endpoint. Every new Sentry issue automatically kicks off an investigation.
-
-### Vercel
-
-**In investigation:** Reef queries Vercel deployment history to find what shipped before the incident. Deployment timestamps are used to anchor the correlation window across other sources.
-
-**In remediation:** Reef can trigger a rollback on the identified deployment via the Vercel API when severity is low enough for autonomous action.
-
-### Slack
-
-**In investigation:** Reef reads incident channel message history to enrich context, oncall discussions, manually noted observations, and timestamps from the thread all feed into the investigation.
-
-**As a trigger:** Engineers can start an investigation from any Slack channel with `/reef <natural language query>`. The report is posted back to the thread.
-
-**As the human gate:** When severity is high, Reef posts a structured approval request to Slack. A human reviews the evidence and the proposed remediation action, then approves or rejects it with one click. Nothing is executed without that approval.
+**Slack and the human gate.** When severity exceeds the threshold, Reef posts a structured approval request to your incident channel. It includes the full evidence, the suspected PR, and the proposed action. One click approves or rejects — nothing executes without it.
 
 ---
 
 ## AI Models
 
-Reef uses two LLMs with distinct, non-overlapping roles in the investigation loop.
+Reef uses two LLMs in the investigation loop, each with a distinct role.
 
-### Planner — Gemini 2.5 Flash
+**Planner — Gemini 2.5 Flash.** Answers *what should we investigate next?* At each iteration it receives the original query, all previous results, and the hypotheses built so far, then outputs the next Coral SQL query and a plain-English rationale.
 
-The planner answers: *what should we investigate next?*
+Default: `gemini-2.5-flash` via [Google AI Studio](https://aistudio.google.com/apikey) (free tier, no billing required).
 
-At each iteration it receives the original query, all previous query results, and the hypotheses built so far. It outputs the next Coral SQL query and a plain-English rationale. The planner is optimized for structured reasoning about which JOIN and which timestamp window will most efficiently narrow the root cause.
+**Judge — Groq / Llama 3.3 70B.** Answers *is this evidence sufficient to stop?* After each query it scores confidence (0.0–1.0) and extracts structured hypotheses. When confidence reaches 0.6 with a strong hypothesis, the loop terminates. Groq's low latency keeps the loop tight.
 
-Default provider: `gemini` · Default model: `gemini-2.5-flash`
-Free tier via [Google AI Studio](https://aistudio.google.com/apikey) — no billing required.
+Default: `llama-3.3-70b-versatile` via [Groq Console](https://console.groq.com/keys) (free tier, no billing required).
 
-### Judge — Groq (Llama 3.3 70B)
-
-The judge answers: *is this evidence sufficient to stop?*
-
-After each query execution, the judge scores the returned rows against the investigation context and outputs a confidence score (0.0–1.0) and a list of structured hypotheses. When confidence reaches 0.6 and a strong hypothesis is present, the loop terminates. The judge is optimized for speed — Groq's inference latency keeps the loop tight.
-
-Default provider: `groq` · Default model: `llama-3.3-70b-versatile`
-Free tier via [Groq Console](https://console.groq.com/keys) — no billing required.
-
-### Supported Providers
-
-Both roles accept `gemini`, `groq`, `openai`, or `anthropic`. Swap providers by setting `PLANNER_LLM_PROVIDER` and `JUDGE_LLM_PROVIDER` in your `.env`.
-
-### Rules-Based Fallback
-
-If no LLM keys are configured, Reef falls back automatically: a template-based planner runs a fixed query sequence, and a rules-based judge scores evidence using row count, fatal signal detection, and deployment correlation. The full investigation loop still runs — no LLM required.
+Both roles accept `gemini`, `groq`, `openai`, or `anthropic` — swap with `PLANNER_LLM_PROVIDER` / `JUDGE_LLM_PROVIDER`. If no LLM keys are configured, Reef falls back to a template-based planner and a rules-based judge (row count + fatal signal detection + deployment correlation). The full loop still runs.
 
 ---
 
@@ -132,12 +95,10 @@ After root cause is identified, Reef scores the incident using a weighted formul
 - Fatal error penalty (`+0.15` when Sentry reports `fatal` level)
 - Ownership gap penalty (`+0.05` when no CODEOWNERS match is found)
 
-The score drives two distinct remediation modes:
-
 | Severity Score | Mode | What Reef does |
 |----------------|------|----------------|
-| ≤ 0.7 | `autonomous_fix` | Reef proceeds: reverts the PR, rolls back the Vercel deployment, posts a resolution summary to Slack |
-| > 0.7 | `human_agent_paired` | Reef posts a structured approval request to Slack with the full evidence and proposed action. A human approves or rejects before anything is executed |
+| ≤ 0.7 | `autonomous_fix` | Reef proceeds: reverts the PR, rolls back the Vercel deployment, posts a resolution to Slack |
+| > 0.7 | `human_agent_paired` | Reef posts an approval request to Slack. A human approves or rejects before anything is executed |
 
 High-severity incidents always have a human in the loop. Low-risk incidents resolve without paging anyone.
 
@@ -147,66 +108,17 @@ High-severity incidents always have a human in the loop. Low-risk incidents reso
 
 ### Backend
 
-The backend is a **FastAPI** service (Python 3.11+) that orchestrates the full investigation loop and exposes REST endpoints for triggering investigations, polling status, retrieving reports, and approving remediation.
+A **FastAPI** service (Python 3.11+) that runs the investigation loop and exposes REST endpoints for triggering, polling, reporting, and approving remediation. The core pipeline is `Orchestrator → Planner → QueryExecutor (Coral) → EvidenceStore → Judge → EscalationEngine → SeverityGate → ReportGenerator`. Each investigation and every Coral query run it executes are persisted to the database with full citations (`coral://query-run/{id}`).
 
-**Core services:**
+**Database:** SQLAlchemy ORM. SQLite in development, PostgreSQL 16 in production. Core tables: `investigations`, `query_runs`, `report_snapshots`, and per-org multi-tenant tables with encrypted credential storage.
 
-| Service | What it does |
-|---------|-------------|
-| `InvestigationOrchestrator` | Stateful loop controller — sequences planner → executor → judge per iteration |
-| `LLMPlannerService` | Sends investigation context to Gemini, returns next `QueryPlan` (SQL + rationale) |
-| `PlannerService` | Template-based fallback planner — fixed query sequence, no LLM needed |
-| `QueryExecutor` | Validates SQL is read-only, runs it through Coral CLI or mock, normalizes rows |
-| `EvidenceStore` | Persists each `QueryRun` to the database, returns `coral://query-run/{id}` citations |
-| `LLMJudgeService` | Sends evidence rows to Groq/Gemini, returns confidence score and hypotheses |
-| `JudgeService` | Rules-based fallback judge |
-| `EscalationEngine` | Flags ownership gaps, conflicting hypotheses, and low-evidence loops |
-| `SeverityGate` | Computes weighted severity score and sets `remediation_mode` |
-| `ReportGenerator` | Builds `ReportResponse` (JSON) and a Markdown narrative |
-| `SlackClient` | Posts investigation summaries, sends human approval requests |
-| `CoralRuntimeClient` | Runs `coral sql` subprocess (or returns canned mock data in demo mode) |
-
-**Database** (SQLAlchemy ORM — SQLite in development, PostgreSQL in production):
-
-| Table | Contents |
-|-------|---------|
-| `investigations` | Status, confidence score, severity score, remediation mode, timestamps |
-| `query_runs` | SQL executed, rows returned, iteration number, per-investigation |
-| `report_snapshots` | Finalized JSON payload and rendered Markdown |
-| `organizations` | Multi-tenant org records |
-| `users` | User accounts scoped to an organization |
-| `organization_integrations` | Encrypted per-org credentials (GitHub, Sentry, Slack, Vercel) |
-
-**Coral** runs in two modes controlled by `CORAL_MODE`:
-- `mock` — returns canned "checkout failed" demo data. No Coral install needed. Good for development.
-- `cli` — runs real `coral sql` subprocesses against your connected sources. Requires Coral CLI installed and sources configured.
+**Coral** runs in two modes set by `CORAL_MODE`:
+- `mock` — canned demo data, no Coral install needed
+- `cli` — real `coral sql` subprocesses against your connected sources
 
 ### Frontend
 
-The frontend is a **React 19 + TypeScript** app built with Vite, styled with Tailwind CSS, and deployed on Vercel. It communicates with the FastAPI backend via typed HTTP client wrappers.
-
-**Pages:**
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Dashboard | `/` | Trigger form, active investigation panel, history list |
-| Report | `/report/:reportId` | Full report view with timeline, suspects, and citations |
-| Login / Signup | `/login`, `/signup` | JWT authentication (multi-tenant) |
-
-**Key components:**
-
-| Component | Description |
-|-----------|-------------|
-| `InvestigationForm` | Natural language query input and Vercel deployment URL paste |
-| `InvestigationPanel` | Live investigation status with per-iteration timeline updates |
-| `ReportPanel` | Root cause, suspects, Coral citations, unresolved gaps |
-| `ReportTimeline` | Visual incident timeline rendered from report data |
-| `SeverityBar` | Color-coded severity indicator from 0.0 to 1.0 |
-| `SourceBadges` | Platform icons for GitHub, Sentry, Slack, and Vercel |
-
-**Stack:** React 19.2.6 · TypeScript · Vite 8 · React Router v7 · Tailwind CSS 4.3 · Three.js (ambient backdrop) · Vercel (deployment)
-
-**State:** `InvestigationContext` (active investigation), `AuthContext` (JWT session), `ThemeContext` (light/dark)
+A **React 19 + TypeScript** app (Vite, Tailwind CSS, React Router v7) deployed on Vercel. The dashboard lets engineers trigger investigations via natural language query or Vercel deployment URL, watch the live investigation loop iteration by iteration, and read the final report with timeline, suspects, and Coral citations. State is managed via React Context; the API layer uses typed HTTP wrappers against the FastAPI backend.
 
 ---
 
@@ -224,7 +136,7 @@ The frontend is a **React 19 + TypeScript** app built with Vite, styled with Tai
 
 ### Local Development — SQLite + mock Coral
 
-The fastest path. No external database, no Coral install required.
+No external database or Coral install required.
 
 ```bash
 # Backend
@@ -243,7 +155,7 @@ pnpm install
 pnpm dev
 ```
 
-Backend runs at `http://127.0.0.1:8000` · Frontend at `http://localhost:5173`
+Backend at `http://127.0.0.1:8000` · Frontend at `http://localhost:5173`
 
 Trigger a test investigation:
 
@@ -251,20 +163,6 @@ Trigger a test investigation:
 curl -X POST http://127.0.0.1:8000/api/v1/triggers/dashboard \
   -H "Content-Type: application/json" \
   -d '{"query": "Why did checkout fail after the last deploy?"}'
-```
-
-Or paste a Vercel deployment URL:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/triggers/dashboard \
-  -H "Content-Type: application/json" \
-  -d '{"vercel_url": "dpl_EEWWZ361mMHt6cnfxB3cFWQkChnv"}'
-```
-
-To run all 8 dashboard scenarios and 4 Sentry webhooks at once:
-
-```bash
-./scripts/simulate_triggers.sh all
 ```
 
 ### Docker Compose — Postgres + Coral CLI
@@ -279,33 +177,14 @@ curl http://127.0.0.1:8000/health
 
 ```bash
 brew install withcoral/tap/coral
-
-# Non-interactive setup using env vars
 cp backend/.env.example backend/.env   # fill GITHUB_TOKEN, SENTRY_ORG, SENTRY_TOKEN, SLACK_TOKEN
 set -a && source backend/.env && set +a
-./scripts/setup_coral_sources.sh
-```
-
-Manual setup:
-
-```bash
-coral source add github   # reads GITHUB_TOKEN from env
-coral source add sentry   # reads SENTRY_ORG, SENTRY_TOKEN
-coral source add slack    # reads SLACK_TOKEN
-coral source add vercel   # reads VERCEL_TOKEN
-
-# Verify sources
-coral sql "SELECT schema_name, table_name FROM coral.tables LIMIT 20"
+./scripts/setup_coral_sources.sh       # non-interactive: reads tokens from env
 ```
 
 ### Production — GCE + nginx + Let's Encrypt
 
-Full guide: [`deploy/gce/README.md`](deploy/gce/README.md)
-
-- **VM:** GCE e2-medium, Ubuntu 24.04, 30 GB
-- **Backend:** Docker Compose (Postgres 16 + FastAPI) on the VM
-- **TLS:** nginx reverse proxy + Certbot auto-renewal
-- **Frontend:** Vercel with `VITE_API_BASE_URL=https://api.yourdomain.com`
+Full guide: [`deploy/gce/README.md`](deploy/gce/README.md) — covers VM provisioning, Docker Compose, nginx TLS, and Vercel frontend wiring.
 
 ---
 
@@ -318,30 +197,26 @@ All configuration lives in `backend/.env`. Start from `backend/.env.example`.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | `sqlite:///./reef.db` | SQLite for dev · Postgres connection string for production |
-| `CORAL_MODE` | `mock` | `mock` for canned demo data · `cli` for real Coral queries |
+| `CORAL_MODE` | `mock` | `mock` for demo data · `cli` for real Coral queries |
 | `CORAL_BINARY` | `coral` | Path to the Coral CLI binary |
 | `CORAL_SQL_TIMEOUT` | `30` | Seconds before a Coral query times out |
-| `MAX_INVESTIGATION_ITERATIONS` | `5` | Max orchestrator loop iterations per investigation |
+| `MAX_INVESTIGATION_ITERATIONS` | `5` | Max loop iterations per investigation |
 | `CONFIDENCE_THRESHOLD` | `0.6` | Minimum confidence score to stop the loop |
 | `SEVERITY_THRESHOLD` | `0.7` | Above this → `human_agent_paired` mode |
 
-### Platform credentials
+### Platform Credentials
 
 | Variable | Used for |
 |----------|---------|
-| `GITHUB_TOKEN` | Coral GitHub source + PR revert (remediation) |
-| `GITHUB_OWNER` | Coral `github.pulls` and ownership filters |
-| `GITHUB_REPO` | Coral `github.pulls` and ownership filters |
-| `GITHUB_ACCOUNT_TYPE` | `user` → `github.collaborators` · `org` → `github.teams` |
-| `SENTRY_ORG` | Coral Sentry source |
-| `SENTRY_TOKEN` | Coral Sentry source |
+| `GITHUB_TOKEN` | Coral GitHub source + PR revert |
+| `GITHUB_OWNER` / `GITHUB_REPO` | Coral query filters |
+| `GITHUB_ACCOUNT_TYPE` | `user` → collaborators · `org` → teams |
+| `SENTRY_ORG` / `SENTRY_TOKEN` | Coral Sentry source |
 | `SLACK_TOKEN` | Coral Slack reads (incident threads) |
-| `SLACK_BOT_TOKEN` | Slack notifications and approval gate posts |
-| `SLACK_SIGNING_SECRET` | Slash command request verification |
-| `VERCEL_TOKEN` | Coral Vercel source + deployment rollback |
-| `VERCEL_TEAM_ID` | Team-scoped Vercel queries |
+| `SLACK_BOT_TOKEN` / `SLACK_SIGNING_SECRET` | Notifications, approval gate, slash command verification |
+| `VERCEL_TOKEN` / `VERCEL_TEAM_ID` | Coral Vercel source + rollback |
 
-### AI models
+### AI Models
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -352,28 +227,23 @@ All configuration lives in `backend/.env`. Start from `backend/.env.example`.
 | `PLANNER_MODEL` | `gemini-2.5-flash` | Override planner model ID |
 | `JUDGE_MODEL` | `llama-3.3-70b-versatile` | Override judge model ID |
 
-### Auth and multi-tenancy
-
-| Variable | Description |
-|----------|-------------|
-| `JWT_SECRET` | Secret key for JWT signing |
-| `CREDENTIALS_ENCRYPTION_KEY` | Fernet key for encrypting per-org integration tokens |
-| `AUTH_REQUIRED` | `true` to enforce JWT on all endpoints |
-| `CORAL_ORGS_BASE_DIR` | Base directory for per-org Coral config volumes |
-
 ---
 
 ## API Reference
 
-### Trigger endpoints
+### Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/v1/triggers/dashboard` | Start an investigation from the UI |
-| `POST` | `/api/v1/triggers/slack` | Start an investigation from a Slack slash command |
-| `POST` | `/api/v1/webhooks/sentry` | Async investigation triggered by Sentry webhook |
+| `POST` | `/api/v1/triggers/slack` | Start from a Slack slash command |
+| `POST` | `/api/v1/webhooks/sentry` | Async investigation from a Sentry webhook |
+| `GET` | `/api/v1/investigations/{id}` | Poll status and live confidence |
+| `GET` | `/api/v1/investigations/{id}/report` | Retrieve the finalized report |
+| `POST` | `/api/v1/investigations/{id}/approve` | Approve remediation (`human_agent_paired` mode) |
+| `GET` | `/health` | Liveness check |
 
-**Response shape** (`ReportResponse`):
+### Response shape
 
 ```json
 {
@@ -388,76 +258,19 @@ All configuration lives in `backend/.env`. Start from `backend/.env.example`.
 }
 ```
 
-### Investigation endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/investigations/{id}` | Poll status and live confidence during the loop |
-| `GET` | `/api/v1/investigations/{id}/report` | Retrieve the finalized report |
-| `POST` | `/api/v1/investigations/{id}/approve` | Approve remediation for `human_agent_paired` mode |
-
-**Poll response:**
-
-```json
-{
-  "investigation_id": "3f4a...",
-  "status": "complete",
-  "iteration_count": 2,
-  "confidence_score": 0.75,
-  "root_cause": "PR #234 ...",
-  "severity_score": 0.873,
-  "remediation_mode": "human_agent_paired"
-}
-```
-
-### Health
-
-```bash
-curl http://127.0.0.1:8000/health
-# {"status": "ok"}
-```
-
-Swagger UI: `http://127.0.0.1:8000/docs`
-
-A Postman collection with 17 pre-wired requests (trigger → poll → approve → verify) is at [`docs/reef_postman_collection.json`](docs/reef_postman_collection.json).
+Swagger UI at `http://127.0.0.1:8000/docs` · Postman collection (17 requests, full lifecycle) at [`docs/reef_postman_collection.json`](docs/reef_postman_collection.json).
 
 ---
 
 ## Integrating with Your Team
 
-Reef is designed to plug into your existing incident response workflow, not replace it.
+**Sentry alerts → automatic investigations.** In Sentry → Settings → Developer Settings → Internal Integrations, point a webhook at `POST https://your-reef-host/api/v1/webhooks/sentry`. Every new issue kicks off an investigation automatically. Your on-call engineer gets a Slack message when the report is ready.
 
-### Connect Sentry alerts as investigation triggers
+**Slack slash command.** Configure `/reef` to POST to `https://your-reef-host/api/v1/triggers/slack`. Engineers trigger investigations from any channel with plain-language descriptions. The report posts back to the thread.
 
-In **Sentry → Settings → Developer Settings → Internal Integrations**, create an integration and point the webhook URL at:
+**Human approval for high-severity incidents.** When severity exceeds the threshold, Reef posts a structured approval message to Slack with the full evidence and proposed action. One click is all it takes — no engineer needs to cross-reference five tools to decide.
 
-```
-POST https://your-reef-host/api/v1/webhooks/sentry
-```
-
-Every new Sentry issue now automatically triggers a Reef investigation. Your on-call engineer receives a Slack message when the report is ready — without manually starting anything.
-
-### Add `/reef` to your incident Slack channel
-
-Configure the Slack slash command to point at:
-
-```
-POST https://your-reef-host/api/v1/triggers/slack
-```
-
-Engineers can trigger an investigation from any Slack channel with a plain-language description of the problem. The report posts back to the thread.
-
-### Keep humans in the loop for high-severity incidents
-
-When severity exceeds the threshold, Reef posts a structured approval request to a configured Slack channel. The message includes the full evidence, the suspected PR, and the proposed remediation action. One approval or rejection is all that's needed — no engineer has to read five tools to make the call.
-
-### Swap in your own LLMs
-
-Set `PLANNER_LLM_PROVIDER` and `JUDGE_LLM_PROVIDER` to `openai` or `anthropic` if your team already manages those credentials. The free Gemini + Groq defaults require no billing account to start.
-
-### Multi-tenant deployments
-
-Each organization is isolated with its own row in `organizations` and its own encrypted credentials in `organization_integrations`. Set `CORAL_ORGS_BASE_DIR` to a volume path and Reef will maintain a per-org Coral config directory. Teams share one Reef deployment; their data and tokens stay separated.
+**Multi-tenant deployments.** Each organization stores its own encrypted credentials in `organization_integrations`, isolated by org ID. Set `CORAL_ORGS_BASE_DIR` to a volume path for per-org Coral config directories. Teams share one Reef deployment; their tokens and data stay separated.
 
 ---
 
@@ -468,7 +281,7 @@ cd backend
 pytest -v
 ```
 
-The test suite has 25 tests covering: health endpoints, query executor (mock rows, read-only SQL guard, row normalization), severity gate (threshold logic, fatal and ownership penalties), orchestrator (full loop, citation output, timeline), and trigger endpoints (end-to-end dashboard and Slack flows).
+25 tests covering health, query executor, severity gate, orchestrator loop, and trigger endpoints.
 
 ---
 
@@ -478,35 +291,25 @@ The test suite has 25 tests covering: health endpoints, query executor (mock row
 coral_hackers/
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/          # Triggers, investigations, webhooks, auth
-│   │   ├── clients/             # Coral, GitHub, Vercel, Sentry, Slack, LLM clients
-│   │   ├── core/                # Config, logging, security
-│   │   ├── db/                  # SQLAlchemy models
-│   │   ├── schemas/             # Pydantic request and response models
-│   │   └── services/            # Orchestrator, planner, judge, executor, evidence, severity, report
-│   ├── scripts/                 # Coral source setup and trigger simulation
+│   │   ├── api/routes/     # Triggers, investigations, webhooks, auth
+│   │   ├── clients/        # Coral, GitHub, Vercel, Sentry, Slack, LLM
+│   │   ├── services/       # Orchestrator, planner, judge, executor, evidence, severity, report
+│   │   ├── db/             # SQLAlchemy models
+│   │   └── schemas/        # Pydantic request/response models
+│   ├── scripts/            # Coral source setup and trigger simulation
 │   ├── tests/
-│   ├── docker-compose.yml
-│   ├── pyproject.toml
-│   └── README.md
+│   └── docker-compose.yml
 ├── frontend/
-│   ├── src/
-│   │   ├── api/                 # Typed HTTP wrappers (triggers, investigations)
-│   │   ├── components/          # Shared UI components
-│   │   ├── contexts/            # Auth, Investigation, Theme providers
-│   │   ├── pages/               # Route-level pages
-│   │   ├── hooks/               # Custom React hooks
-│   │   └── types/               # TypeScript interfaces
-│   ├── vercel.json
-│   └── README.md
+│   └── src/
+│       ├── api/            # Typed HTTP wrappers
+│       ├── components/     # Shared UI
+│       ├── contexts/       # Auth, Investigation, Theme
+│       └── pages/          # Dashboard, Report, Auth
 ├── docs/
 │   ├── architecture_diagram.txt
-│   ├── backend_project_structure.md
 │   ├── implementation_status.md
 │   └── reef_postman_collection.json
-├── deploy/
-│   └── gce/                     # GCE production deployment guide and scripts
-└── data/                        # Per-org Coral config directories
+└── deploy/gce/             # Production deployment guide
 ```
 
 ---
@@ -515,11 +318,9 @@ coral_hackers/
 
 - [Coral](https://withcoral.ai) — SQL over APIs, cross-source JOINs, local execution
 - [FastAPI](https://fastapi.tiangolo.com) — async Python web framework
-- [React 19](https://react.dev) — frontend framework
-- [Vite](https://vitejs.dev) — frontend build tool
-- [Tailwind CSS](https://tailwindcss.com) — styling
-- [Gemini 2.5 Flash](https://aistudio.google.com) — investigation planner LLM (free tier)
-- [Groq / Llama 3.3 70B](https://console.groq.com) — evidence judge LLM (free tier)
+- [React 19](https://react.dev) + TypeScript + Vite + Tailwind CSS — frontend
+- [Gemini 2.5 Flash](https://aistudio.google.com) — planner LLM (free tier)
+- [Groq / Llama 3.3 70B](https://console.groq.com) — judge LLM (free tier)
 - [PostgreSQL](https://www.postgresql.org) — production database
 - [Vercel](https://vercel.com) — frontend deployment
 
