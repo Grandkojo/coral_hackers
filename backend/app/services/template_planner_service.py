@@ -36,7 +36,9 @@ def _github_account_type(context: dict[str, str]) -> GitHubAccountType:
 
 
 def _ownership_sql(owner: str, repo: str, context: dict[str, str]) -> tuple[str, str]:
-    if _github_account_type(context) == GitHubAccountType.org:
+    # Repo-scoped collaborators use fewer GitHub API calls than listing all org teams.
+    use_collaborators = bool(repo) or _github_account_type(context) != GitHubAccountType.org
+    if not use_collaborators:
         return (
             f"""SELECT
   name        AS service,
@@ -205,6 +207,32 @@ LIMIT 10""",
 
     if iteration == correlate and sentry_id and not deployment_id:
         project = (context.get("sentry_project") or "").strip()
+        if owner and repo:
+            return QueryPlan(
+                sql=f"""SELECT
+  d.uid AS deployment_id,
+  d.created_at AS deploy_at,
+  s.id AS sentry_issue_id,
+  s.title AS error_message,
+  s.first_seen,
+  p.name AS vercel_project,
+  json_get_str(p.link, 'org') AS github_owner,
+  json_get_str(p.link, 'repo') AS github_repo
+FROM vercel.deployments d
+JOIN vercel.projects p ON p.id = d.project_id
+JOIN sentry.issues s
+  ON s.id = '{sentry_id}' AND s.first_seen >= d.created_at
+WHERE json_get_str(p.link, 'org') = '{owner}'
+  AND json_get_str(p.link, 'repo') = '{repo}'
+  AND d.target = 'production'
+ORDER BY d.created_at DESC
+LIMIT 10""",
+                rationale=(
+                    "Sentry webhook — match Vercel production deploys by linked "
+                    "GitHub repo (not Sentry project slug) before the error time."
+                ),
+                iteration=iteration,
+            )
         if project:
             return QueryPlan(
                 sql=f"""SELECT
@@ -221,11 +249,12 @@ JOIN vercel.projects p ON p.id = d.project_id
 JOIN sentry.issues s
   ON s.id = '{sentry_id}' AND s.first_seen >= d.created_at
 WHERE p.name = '{project}'
+  AND d.target = 'production'
 ORDER BY d.created_at DESC
 LIMIT 10""",
                 rationale=(
-                    "Sentry webhook — no deploy id in payload; list production "
-                    "deploys for this Vercel/Sentry project before the error."
+                    "Sentry webhook — no deploy id; list production deploys for "
+                    "this Vercel project name before the error."
                 ),
                 iteration=iteration,
             )
@@ -278,6 +307,61 @@ LIMIT 10""",
             rationale=(
                 "List PRs merged at or after the deployment (up to 4h later) — "
                 "wave-3 env-only deploys may return zero rows (expected)."
+            ),
+            iteration=iteration,
+        )
+
+    if iteration == pr_iter and sentry_id and not deployment_id and owner and repo:
+        return QueryPlan(
+            sql=f"""SELECT
+  g.number       AS pr_number,
+  g.title        AS pr_title,
+  g.user__login  AS pr_author,
+  g.merged_at,
+  s.id           AS sentry_issue_id,
+  s.title        AS error_message,
+  s.first_seen
+FROM github.pulls g
+JOIN sentry.issues s
+  ON s.id = '{sentry_id}' AND s.first_seen >= g.merged_at
+WHERE g.owner = '{owner}'
+  AND g.repo = '{repo}'
+  AND g.state = 'closed'
+ORDER BY g.merged_at DESC
+LIMIT 10""",
+            rationale=(
+                "No Vercel deploy id yet — list PRs merged before this Sentry "
+                "issue (constant owner/repo filters required by Coral)."
+            ),
+            iteration=iteration,
+        )
+
+    vercel_recover = pr_iter + 1
+    if (
+        iteration == vercel_recover
+        and sentry_id
+        and not deployment_id
+        and owner
+        and repo
+    ):
+        return QueryPlan(
+            sql=f"""SELECT
+  uid,
+  name,
+  project_id,
+  state,
+  target,
+  creator__username,
+  created_at
+FROM vercel.deployments d
+JOIN vercel.projects p ON p.id = d.project_id
+WHERE json_get_str(p.link, 'org') = '{owner}'
+  AND json_get_str(p.link, 'repo') = '{repo}'
+ORDER BY d.created_at DESC
+LIMIT 10""",
+            rationale=(
+                "Prior deploy correlation returned 0 rows — list recent Vercel "
+                "deployments for the linked GitHub repo without Sentry join."
             ),
             iteration=iteration,
         )

@@ -11,13 +11,11 @@ from app.services.template_planner_service import TemplatePlannerService
 
 def test_template_planner_uses_iteration_index() -> None:
     planner = TemplatePlannerService()
-    state = InvestigationState(
-        investigation_id="test",
-        trigger_context={"github_owner": "acme", "github_repo": "svc"},
-    )
+    state = InvestigationState(investigation_id="test", trigger_context={})
 
     plan0 = planner.plan_next_query(state, "checkout errors")
     state.iteration_count = 1
+    state.trigger_context = {"github_owner": "acme", "github_repo": "svc"}
     plan1 = planner.plan_next_query(state, "checkout errors")
 
     assert "coral.tables" in plan0.sql.lower()
@@ -84,7 +82,8 @@ def test_llm_planner_returns_model_sql() -> None:
     state = InvestigationState(
         investigation_id="test",
         iteration_count=2,
-        trigger_context={"sentry_issue_id": "123"},
+        trigger_context={},
+        last_query_row_count=3,
     )
     plan = planner.plan_next_query(state, "python-fastapi errors after deploy")
 

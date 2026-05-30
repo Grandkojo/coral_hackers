@@ -1,10 +1,11 @@
 from uuid import uuid4
 
-from app.core.config import settings
+from app.core.config import CoralMode, settings
 from app.core.logging import get_logger
 from app.schemas.investigation import InvestigationState, InvestigationStatus
 from app.schemas.report import ReportResponse
 from app.schemas.trigger import TriggerRequest
+from app.services.coral_org_setup import ensure_coral_ready_for_org
 from app.services.context_enricher import ContextEnricher
 from app.services.escalation_engine import EscalationEngine
 from app.services.evidence_store import EvidenceStore
@@ -101,7 +102,21 @@ class InvestigationOrchestrator:
             state.github_queries_executed += 1
         return rows
 
+    def _apply_effective_org_coral(self) -> None:
+        if self._org_context is None:
+            return
+        if (
+            settings.coral_mode != CoralMode.cli
+            or self._org_context.organization_id == "legacy"
+        ):
+            return
+        effective = ensure_coral_ready_for_org(self._org_context)
+        self._org_context = effective
+        self.query_executor.set_coral_config_dir(effective.coral_config_dir)
+
     def run(self, trigger: TriggerRequest) -> ReportResponse:
+        self._apply_effective_org_coral()
+
         self.judge.set_user_query(trigger.query or "")
         base_context = dict(trigger.context)
         if self._org_context is not None:

@@ -29,6 +29,8 @@ Available Coral tables (read-only SELECT only):
 
 Rules:
 - Only output read-only SQL starting with SELECT or WITH.
+- github.pulls REQUIRES constant filters: always `WHERE g.owner = '<owner>' AND g.repo = '<repo>'`
+  (use trigger_context github_owner/github_repo). Never query github.pulls without both.
 - Prefer cross-source JOINs when correlating deploys, PRs, and Sentry issues.
 - Use trigger context filters when provided (github_owner, github_repo, sentry_issue_id, vercel_deployment_id).
 - HTTP 500 reports often appear in Sentry as TypeError/Exception titles — filter by level/error and time, not only title ILIKE '%500%'.
@@ -79,12 +81,19 @@ class LLMPlannerService:
         ):
             return self._template.plan_next_query(state, user_query)
 
-        # Prior query returned nothing — do not let the LLM guess harder.
+        # Prior query returned nothing — use templates (anchored recovery first).
         if state.last_query_row_count == 0:
             logger.info(
                 "planner: last query returned 0 rows at iter=%d; using template",
                 state.iteration_count,
             )
+            recovery = context_anchored_plan(
+                state.iteration_count,
+                state.trigger_context,
+                skip_github=skip_github,
+            )
+            if recovery is not None:
+                return recovery
             return self._template.plan_next_query(state, user_query)
 
         try:

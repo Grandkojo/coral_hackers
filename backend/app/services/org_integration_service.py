@@ -35,12 +35,15 @@ def slugify(name: str) -> str:
 
 
 def resolve_coral_config_dir(organization_id: str, current_dir: str = "") -> str:
-    """Pick a writable per-org Coral config directory."""
-    candidates = []
-    if current_dir:
-        candidates.append(Path(current_dir))
-    candidates.append(Path(settings.coral_orgs_base_dir) / organization_id)
-    candidates.append(Path("./data/coral/orgs") / organization_id)
+    """Pick a writable per-org Coral config directory on the persistent volume when present."""
+    candidates: list[Path] = []
+    if Path("/data/coral").is_dir():
+        candidates.append(Path("/data/coral/orgs") / organization_id)
+    else:
+        if current_dir:
+            candidates.append(Path(current_dir))
+        candidates.append(Path(settings.coral_orgs_base_dir) / organization_id)
+        candidates.append(Path("./data/coral/orgs") / organization_id)
 
     seen: set[str] = set()
     for candidate in candidates:
@@ -90,12 +93,15 @@ class OrgIntegrationService:
         if integration.github_account_type == GitHubAccountType.user.value:
             account_type = GitHubAccountType.user
 
+        coral_dir = resolve_coral_config_dir(
+            organization.id, integration.coral_config_dir or ""
+        )
+
         return OrgContext(
             organization_id=organization.id,
             organization_name=organization.name,
             organization_slug=organization.slug,
-            coral_config_dir=integration.coral_config_dir
-            or str(Path(settings.coral_orgs_base_dir) / organization.id),
+            coral_config_dir=coral_dir,
             github_token=decrypt_secret(integration.github_token_enc),
             github_owner=integration.github_owner,
             github_repo=integration.github_repo,

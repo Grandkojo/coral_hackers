@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { AiOutlineDelete, AiOutlineLoading3Quarters } from 'react-icons/ai'
 import type { InvestigationSummary } from '../types/index'
 import { deleteInvestigation, fetchInvestigations } from '../api/investigations'
+import ConfirmDialog from './ConfirmDialog'
 
 interface InvestigationHistoryProps {
   onSelect: (investigationId: string) => void | Promise<void>
@@ -50,6 +51,10 @@ export default function InvestigationHistory({
   const [showAll, setShowAll] = useState(false)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string
+    label: string
+  } | null>(null)
 
   useEffect(() => {
     setShowAll(false)
@@ -87,21 +92,22 @@ export default function InvestigationHistory({
   const visibleItems =
     showAll || hiddenCount === 0 ? items : items.slice(0, INITIAL_VISIBLE)
 
-  async function handleDelete(investigationId: string) {
-    const label = truncate(
-      items.find((i) => i.investigation_id === investigationId)?.user_query ||
-        'this investigation',
-      48,
-    )
-    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) {
-      return
-    }
+  function requestDelete(investigationId: string) {
+    const item = items.find((i) => i.investigation_id === investigationId)
+    const label = truncate(item?.user_query || 'Untitled investigation', 72)
+    setPendingDelete({ id: investigationId, label })
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    const investigationId = pendingDelete.id
     setDeletingId(investigationId)
     setError(null)
     try {
       await deleteInvestigation(investigationId)
       setItems((prev) => prev.filter((i) => i.investigation_id !== investigationId))
       onDeleted?.(investigationId)
+      setPendingDelete(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete investigation')
     } finally {
@@ -190,7 +196,7 @@ export default function InvestigationHistory({
                       title="Delete investigation"
                       aria-label="Delete investigation"
                       disabled={loadingId !== null || (deletingId !== null && !isDeleting)}
-                      onClick={() => void handleDelete(item.investigation_id)}
+                      onClick={() => requestDelete(item.investigation_id)}
                     >
                       {isDeleting ? (
                         <AiOutlineLoading3Quarters className="spin" />
@@ -217,6 +223,23 @@ export default function InvestigationHistory({
           </>
         ) : null}
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete investigation?"
+        description={
+          pendingDelete
+            ? `“${pendingDelete.label}” will be removed from your history. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete investigation"
+        variant="danger"
+        loading={deletingId !== null}
+        onCancel={() => {
+          if (deletingId === null) setPendingDelete(null)
+        }}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   )
 }

@@ -264,6 +264,18 @@ nav {
   transform: translateY(-1px);
 }
 
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red) 88%, #000);
+  border-color: color-mix(in srgb, var(--red) 88%, #000);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--red) 35%, transparent);
+}
+
 /* INPUTS */
 .field-input {
   font-family: var(--font-mono);
@@ -1414,6 +1426,97 @@ code {
 .history-delete-btn:hover:not(:disabled) {
   color: var(--red, #e85d5d);
   border-color: color-mix(in srgb, var(--red, #e85d5d) 40%, var(--border));
+}
+
+/* CONFIRM DIALOG */
+@keyframes confirm-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
+  backdrop-filter: blur(6px);
+  animation: confirm-dialog-in 180ms ease;
+}
+
+.confirm-dialog {
+  width: min(100%, 26rem);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 1rem;
+  padding: 1.35rem 1.35rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  animation: confirm-dialog-in 220ms ease;
+}
+
+.confirm-dialog--danger {
+  border-color: color-mix(in srgb, var(--red) 32%, var(--border-strong));
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+.confirm-dialog-icon {
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-top: 0.1rem;
+  color: var(--red);
+  background: var(--red-dim);
+  border: 1px solid color-mix(in srgb, var(--red) 28%, var(--border));
+  border-radius: 8px;
+  font-size: 1.15rem;
+}
+
+.confirm-dialog-body {
+  min-width: 0;
+}
+
+.confirm-dialog-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-bottom: 0.45rem;
+  line-height: 1.3;
+}
+
+.confirm-dialog-description {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.confirm-dialog-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 
 .history-item {

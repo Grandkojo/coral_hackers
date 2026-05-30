@@ -277,6 +277,23 @@ Confirm `CORAL_MODE=cli` in `.env` and Coral sources listed:
 docker compose exec api coral source list
 ```
 
+**Webhook runs but report has no evidence (`schema not registered`)**  
+Per-org Coral lives under `/data/coral/orgs/<organization-uuid>/`. If the UI shows **Coral ready** but that folder has no sources, investigations query an empty config. Fix either way:
+
+1. **Re-save Integrations** on the production dashboard (runs `setup_coral_sources.sh` into the org dir).
+2. **Copy global config** (quick demo fix when `/data/coral` already has github/sentry/slack/vercel):
+
+```bash
+ORG_ID=c4311095-455c-4fbf-9bf1-7005e56e4f03   # from /auth/me or organizations table
+docker compose exec api bash -c "
+  mkdir -p /data/coral/orgs/${ORG_ID}
+  cp -a /data/coral/. /data/coral/orgs/${ORG_ID}/
+  CORAL_CONFIG_DIR=/data/coral/orgs/${ORG_ID} coral source list
+"
+```
+
+Set `CORAL_ORGS_BASE_DIR=/data/coral/orgs` in `backend/.env` on the VM. Newer API builds also fall back to `/data/coral` when the org dir has no registered sources.
+
 **CORS errors from Vercel**  
 Add your exact frontend origin to `CORS_ORIGINS` (scheme + host, no trailing slash), then **recreate** the API container (a plain `restart` does not reload `.env`):
 

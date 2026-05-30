@@ -14,6 +14,13 @@ class QueryExecutor:
     """Validates, executes, and normalizes Coral SQL queries."""
 
     def __init__(self, coral_config_dir: str | None = None) -> None:
+        self._coral_config_dir = coral_config_dir
+        self._client = CoralRuntimeClient(coral_config_dir=coral_config_dir)
+
+    def set_coral_config_dir(self, coral_config_dir: str | None) -> None:
+        if coral_config_dir == self._coral_config_dir:
+            return
+        self._coral_config_dir = coral_config_dir
         self._client = CoralRuntimeClient(coral_config_dir=coral_config_dir)
 
     def execute(self, sql: str) -> list[dict]:

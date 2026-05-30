@@ -38,12 +38,31 @@ def test_webhook_sentry_only_gets_vercel_correlate_template() -> None:
         {
             "sentry_issue_id": "123540686",
             "sentry_project": "reef-incident-lab-api",
+            "github_owner": "reef-demo-org",
+            "github_repo": "reef-incident-lab",
         },
     )
     assert plan is not None
     assert "vercel.deployments" in plan.sql
-    assert "reef-incident-lab-api" in plan.sql
+    assert "json_get_str(p.link, 'org')" in plan.sql
+    assert "reef-demo-org" in plan.sql
+    assert "production" in plan.sql
     assert "INTERVAL" not in plan.sql
+
+
+def test_webhook_sentry_only_gets_pr_template_without_deploy() -> None:
+    plan = context_anchored_plan(
+        2,
+        {
+            "sentry_issue_id": "123540686",
+            "github_owner": "reef-demo-org",
+            "github_repo": "reef-incident-lab",
+        },
+    )
+    assert plan is not None
+    assert "github.pulls" in plan.sql
+    assert "WHERE g.owner = 'reef-demo-org'" in plan.sql
+    assert "AND g.repo = 'reef-incident-lab'" in plan.sql
 
 
 def test_post_deploy_discovery_orders_newest_sentry_first() -> None:
