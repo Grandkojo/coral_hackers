@@ -14,7 +14,7 @@ When something breaks in production, engineers spend hours manually stitching to
 - Who owns the affected service?
 - Did a Vercel deployment go out in that window?
 
-The information is scattered. The timeline is reconstructed by hand. Root cause is found long after the blast radius has grown.
+The information is scattered, the timeline has to be pieced together manually, and the root cause is often found long after the impact has spread.
 
 **Reef automates the entire investigation.**
 
@@ -62,11 +62,11 @@ One query. Three sources. No ETL.
 | Platform | Investigation role | Trigger / Remediation |
 |----------|-------------------|-----------------------|
 | **GitHub** | PR and commit correlation, CODEOWNERS ownership lookup | Revert PR on the suspected commit in autonomous mode |
-| **Sentry** | Error correlation by timestamp, fatal error severity weighting | Webhook trigger — new issue auto-starts an investigation |
+| **Sentry** | Error correlation by timestamp, fatal error severity weighting | Webhook trigger new issue auto-starts an investigation |
 | **Vercel** | Deployment timeline correlation, incident window anchoring | Rollback the identified deployment in autonomous mode |
 | **Slack** | Incident thread context and on-call discussion history | `/reef` slash command trigger · Human approval gate for high-severity remediation |
 
-**Slack and the human gate.** When severity exceeds the threshold, Reef posts a structured approval request to your incident channel. It includes the full evidence, the suspected PR, and the proposed action. One click approves or rejects — nothing executes without it.
+**Slack and the human gate.** When severity exceeds the threshold, Reef posts a structured approval request to your incident channel. It includes the full evidence, the suspected PR, and the proposed action. One click approves or rejects.
 
 ---
 
@@ -74,15 +74,15 @@ One query. Three sources. No ETL.
 
 Reef uses two LLMs in the investigation loop, each with a distinct role.
 
-**Planner — Gemini 2.5 Flash.** Answers *what should we investigate next?* At each iteration it receives the original query, all previous results, and the hypotheses built so far, then outputs the next Coral SQL query and a plain-English rationale.
+**Planner : Gemini 2.5 Flash.** Answers *what should we investigate next?* At each iteration it receives the original query, all previous results, and the hypotheses built so far, then outputs the next Coral SQL query and a plain-English rationale.
 
 Default: `gemini-2.5-flash` via [Google AI Studio](https://aistudio.google.com/apikey) (free tier, no billing required).
 
-**Judge — Groq / Llama 3.3 70B.** Answers *is this evidence sufficient to stop?* After each query it scores confidence (0.0–1.0) and extracts structured hypotheses. When confidence reaches 0.6 with a strong hypothesis, the loop terminates. Groq's low latency keeps the loop tight.
+**Judge : Groq / Llama 3.3 70B.** Answers *is this evidence sufficient to stop?* After each query it scores confidence (0.0–1.0) and extracts structured hypotheses. When confidence reaches 0.6 with a strong hypothesis, the loop terminates. Groq's low latency keeps the loop tight.
 
 Default: `llama-3.3-70b-versatile` via [Groq Console](https://console.groq.com/keys) (free tier, no billing required).
 
-Both roles accept `gemini`, `groq`, `openai`, or `anthropic` — swap with `PLANNER_LLM_PROVIDER` / `JUDGE_LLM_PROVIDER`. If no LLM keys are configured, Reef falls back to a template-based planner and a rules-based judge (row count + fatal signal detection + deployment correlation). The full loop still runs.
+Both roles accept `gemini`, `groq`, `openai`, or `anthropic`, swap with `PLANNER_LLM_PROVIDER` / `JUDGE_LLM_PROVIDER`. If no LLM keys are configured, Reef falls back to a template-based planner and a rules-based judge (row count + fatal signal detection + deployment correlation). The full loop still runs.
 
 ---
 
@@ -113,8 +113,8 @@ A **FastAPI** service (Python 3.11+) that runs the investigation loop and expose
 **Database:** SQLAlchemy ORM. SQLite in development, PostgreSQL 16 in production. Core tables: `investigations`, `query_runs`, `report_snapshots`, and per-org multi-tenant tables with encrypted credential storage.
 
 **Coral** runs in two modes set by `CORAL_MODE`:
-- `mock` — canned demo data, no Coral install needed
-- `cli` — real `coral sql` subprocesses against your connected sources
+- `mock`:canned demo data, no Coral install needed
+- `cli` : real `coral sql` subprocesses against your connected sources
 
 ### Frontend
 
