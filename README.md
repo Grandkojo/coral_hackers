@@ -57,12 +57,179 @@ One query. Three sources. No ETL.
 
 ---
 
+## Coral: Features and How We Used It
+
+Coral is the data layer Reef is built on. Instead of writing custom API clients and glue code for every tool, Reef treats production systems as queryable tables and runs SQL against them locally.
+
+### What Coral gives us
+
+| Coral feature | How Reef uses it |
+|---------------|------------------|
+| **SQL over APIs** | Investigation queries look like normal SQL — `SELECT … FROM github.pulls JOIN sentry.issues …` — Coral resolves each table from live API calls at query time. |
+| **Cross-source JOINs** | Reef's core insight is temporal correlation: PRs merged *before* fatal errors, deploys in the same window, Slack context in `#incidents`. Coral JOINs these without ETL or a data warehouse. |
+| **Local execution** | Credentials stay on your machine. Reef calls `coral sql --output json "<query>"` as a subprocess (`CORAL_MODE=cli`). Nothing is copied into the LLM context wholesale — only the rows returned by each query. |
+| **Schema discovery** | Iteration 0 runs `SELECT schema_name, table_name FROM coral.tables` so the planner knows which sources are connected before querying data. |
+| **Source plugins** | GitHub, Sentry, Slack, and Vercel are registered once via `coral source add` (or our `./backend/scripts/setup_coral_sources.sh` helper) and become queryable schemas. |
+| **CLI + MCP** | Reef uses the Coral CLI in production. The same sources work in Coral MCP for local debugging and hackathon demos. |
+
+### Sources we wired
+
+| Coral schema | Tables Reef queries | Investigation purpose |
+|--------------|---------------------|------------------------|
+| `github` | `pulls`, `teams`, `collaborators` | Correlate merged PRs with errors; route remediation to owners |
+| `sentry` | `issues` | Anchor on the triggering error; weight severity by level and affected users |
+| `slack` | `channels`, `messages` | Pull `#incidents` thread context and on-call discussion |
+| `vercel` | `deployments`, `projects` | Anchor the incident window to a specific deploy (`dpl_…`) |
+
+### How Reef calls Coral
+
+```
+Trigger → Planner (SQL) → QueryExecutor → coral_runtime_client → coral sql → rows → Judge → EvidenceStore
+```
+
+- **`app/clients/coral_runtime_client.py`** — runs `coral sql` subprocess or returns mock demo rows when `CORAL_MODE=mock`.
+- **`app/services/query_executor.py`** — read-only SQL guard (`SELECT` / `WITH` / `EXPLAIN` only), row normalization, timeout handling.
+- **`app/services/template_planner_service.py`** — curated fallback queries when no LLM keys are set (schema catalog → PR↔Sentry JOIN → Slack → Vercel deploys → ownership).
+- **`app/services/llm_planner_service.py`** — Gemini generates the next query dynamically from prior evidence and hypotheses.
+
+### Example queries Reef runs during an investigation
+
+**Schema discovery:**
+
+```sql
+SELECT schema_name, table_name
+FROM coral.tables
+WHERE schema_name IN ('github', 'sentry', 'slack', 'vercel')
+ORDER BY schema_name, table_name
+LIMIT 30;
+```
+
+**Core correlation (Reef's strongest join):**
+
+```sql
+SELECT g.title AS pr_title, g.number AS pr_number, s.title AS error_message, s.level AS error_level
+FROM github.pulls g
+JOIN sentry.issues s ON s.first_seen >= g.merged_at
+WHERE g.owner = 'your-org'
+  AND g.repo = 'your-repo'
+  AND s.level IN ('fatal', 'error')
+  AND g.state = 'closed'
+ORDER BY s.first_seen DESC
+LIMIT 20;
+```
+
+**Slack incident context:**
+
+```sql
+SELECT text, user, ts
+FROM slack.messages
+WHERE channel = 'incidents'
+ORDER BY ts DESC
+LIMIT 20;
+```
+
+**Vercel deploy timeline:**
+
+```sql
+SELECT uid, name, state, target, created_at
+FROM vercel.deployments
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+### Setup
+
+```bash
+brew install withcoral/tap/coral
+cp backend/.env.example backend/.env   # fill GITHUB_TOKEN, SENTRY_ORG, SENTRY_TOKEN, SLACK_TOKEN
+set -a && source backend/.env && set +a
+./backend/scripts/setup_coral_sources.sh   # non-interactive: reads tokens from env
+```
+
+Set `CORAL_MODE=cli` in `.env` for real queries, or leave `CORAL_MODE=mock` for the canned checkout-failure demo (no Coral install required).
+
+---
+
+## Sentry Webhook Integration
+
+Reef accepts Sentry internal-integration webhooks and automatically starts an investigation when a new issue is created — no engineer needs to open the dashboard.
+
+### Flow
+
+```
+Sentry (issue.created)
+  → POST /api/v1/webhooks/sentry  (202 Accepted immediately)
+  → Background worker: normalize payload → resolve org → run orchestrator loop
+  → Coral queries across GitHub, Sentry, Slack, Vercel
+  → Report generated → Slack message posted to #incidents
+```
+
+Reef returns **202 Accepted** right away so Sentry does not time out. The full investigation runs asynchronously; when complete, Reef posts a structured summary to your incident Slack channel with root cause, severity, remediation mode, and a link to the full report.
+
+### Configure in Sentry
+
+1. **Sentry** → **Settings** → **Developer Settings** → **New Internal Integration**
+2. Set the webhook URL to your Reef host:
+   ```
+   POST https://your-reef-host/api/v1/webhooks/sentry
+   ```
+3. Subscribe to **Issue** events (e.g. `issue.created` or issue alert webhooks)
+4. In Reef's `backend/.env`, set either:
+   - `WEBHOOK_ORGANIZATION_ID=<your-org-uuid>` — pins all webhooks to one Reef org, or
+   - Match `sentry_org` on your org profile so Reef resolves the tenant from the payload's `organization.slug`
+
+Also required: `SLACK_BOT_TOKEN` and `SLACK_INCIDENT_CHANNEL` so Reef can post the report when the investigation finishes.
+
+### Test locally
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/webhooks/sentry \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "created",
+    "organization": {"slug": "YOUR_SENTRY_ORG"},
+    "data": {
+      "issue": {
+        "id": "123118378",
+        "shortId": "PYTHON-FASTAPI-1",
+        "title": "TypeError in checkout payment validation",
+        "level": "fatal",
+        "project": {"slug": "python-fastapi"}
+      }
+    }
+  }'
+```
+
+**Response (202):**
+
+```json
+{
+  "accepted": true,
+  "message": "Investigation queued; report will post to Slack when complete.",
+  "sentry_issue_id": "123118378",
+  "sentry_short_id": "PYTHON-FASTAPI-1",
+  "organization_id": "..."
+}
+```
+
+Sample payloads live in `backend/scripts/fixtures/sentry_*.json`. Run all webhook scenarios with:
+
+```bash
+BASE_URL=http://127.0.0.1:8000 ./backend/scripts/simulate_triggers.sh sentry
+```
+
+### What Reef extracts from the payload
+
+The webhook normalizer (`app/services/trigger_normalizer.py`) pulls `sentry_issue_id`, `sentry_short_id`, `sentry_title`, `sentry_level`, `sentry_project`, and `sentry_org_slug` from standard Sentry issue webhooks. These anchor the first Coral queries so the loop focuses on the triggering error instead of scanning all of Sentry.
+
+---
+
 ## Platform Integrations
 
 | Platform | Investigation role | Trigger / Remediation |
 |----------|-------------------|-----------------------|
 | **GitHub** | PR and commit correlation, CODEOWNERS ownership lookup | Revert PR on the suspected commit in autonomous mode |
-| **Sentry** | Error correlation by timestamp, fatal error severity weighting | Webhook trigger new issue auto-starts an investigation |
+| **Sentry** | Error correlation by timestamp, fatal error severity weighting | Webhook trigger — new issue auto-starts an investigation |
 | **Vercel** | Deployment timeline correlation, incident window anchoring | Rollback the identified deployment in autonomous mode |
 | **Slack** | Incident thread context and on-call discussion history | `/reef` slash command trigger · Human approval gate for high-severity remediation |
 
@@ -74,15 +241,15 @@ One query. Three sources. No ETL.
 
 Reef uses two LLMs in the investigation loop, each with a distinct role.
 
-**Planner : Gemini 2.5 Flash.** Answers *what should we investigate next?* At each iteration it receives the original query, all previous results, and the hypotheses built so far, then outputs the next Coral SQL query and a plain-English rationale.
+**Planner — Gemini 2.5 Flash.** Answers *what should we investigate next?* At each iteration it receives the original query, all previous results, and the hypotheses built so far, then outputs the next Coral SQL query and a plain-English rationale.
 
 Default: `gemini-2.5-flash` via [Google AI Studio](https://aistudio.google.com/apikey) (free tier, no billing required).
 
-**Judge : Groq / Llama 3.3 70B.** Answers *is this evidence sufficient to stop?* After each query it scores confidence (0.0–1.0) and extracts structured hypotheses. When confidence reaches 0.6 with a strong hypothesis, the loop terminates. Groq's low latency keeps the loop tight.
+**Judge — Groq / Llama 3.3 70B.** Answers *is this evidence sufficient to stop?* After each query it scores confidence (0.0–1.0) and extracts structured hypotheses. When confidence reaches 0.6 with a strong hypothesis, the loop terminates. Groq's low latency keeps the loop tight.
 
 Default: `llama-3.3-70b-versatile` via [Groq Console](https://console.groq.com/keys) (free tier, no billing required).
 
-Both roles accept `gemini`, `groq`, `openai`, or `anthropic`, swap with `PLANNER_LLM_PROVIDER` / `JUDGE_LLM_PROVIDER`. If no LLM keys are configured, Reef falls back to a template-based planner and a rules-based judge (row count + fatal signal detection + deployment correlation). The full loop still runs.
+Both roles accept `gemini`, `groq`, `openai`, or `anthropic` — swap with `PLANNER_LLM_PROVIDER` / `JUDGE_LLM_PROVIDER`. If no LLM keys are configured, Reef falls back to a template-based planner and a rules-based judge (row count + fatal signal detection + deployment correlation). The full loop still runs.
 
 ---
 
@@ -113,12 +280,14 @@ A **FastAPI** service (Python 3.11+) that runs the investigation loop and expose
 **Database:** SQLAlchemy ORM. SQLite in development, PostgreSQL 16 in production. Core tables: `investigations`, `query_runs`, `report_snapshots`, and per-org multi-tenant tables with encrypted credential storage.
 
 **Coral** runs in two modes set by `CORAL_MODE`:
-- `mock`:canned demo data, no Coral install needed
-- `cli` : real `coral sql` subprocesses against your connected sources
+- `mock` — canned demo data, no Coral install needed
+- `cli` — real `coral sql` subprocesses against your connected sources
 
 ### Frontend
 
 A **React 19 + TypeScript** app (Vite, Tailwind CSS, React Router v7) deployed on Vercel. The dashboard lets engineers trigger investigations via natural language query or Vercel deployment URL, watch the live investigation loop iteration by iteration, and read the final report with timeline, suspects, and Coral citations. State is managed via React Context; the API layer uses typed HTTP wrappers against the FastAPI backend.
+
+See [`docs/architecture_diagram.txt`](docs/architecture_diagram.txt) for the full ASCII diagram.
 
 ---
 
@@ -179,7 +348,7 @@ curl http://127.0.0.1:8000/health
 brew install withcoral/tap/coral
 cp backend/.env.example backend/.env   # fill GITHUB_TOKEN, SENTRY_ORG, SENTRY_TOKEN, SLACK_TOKEN
 set -a && source backend/.env && set +a
-./scripts/setup_coral_sources.sh       # non-interactive: reads tokens from env
+./backend/scripts/setup_coral_sources.sh
 ```
 
 ### Production — GCE + nginx + Let's Encrypt
@@ -203,6 +372,7 @@ All configuration lives in `backend/.env`. Start from `backend/.env.example`.
 | `MAX_INVESTIGATION_ITERATIONS` | `5` | Max loop iterations per investigation |
 | `CONFIDENCE_THRESHOLD` | `0.6` | Minimum confidence score to stop the loop |
 | `SEVERITY_THRESHOLD` | `0.7` | Above this → `human_agent_paired` mode |
+| `WEBHOOK_ORGANIZATION_ID` | _(empty)_ | Pin Sentry webhooks to a specific Reef org UUID |
 
 ### Platform Credentials
 
@@ -214,7 +384,9 @@ All configuration lives in `backend/.env`. Start from `backend/.env.example`.
 | `SENTRY_ORG` / `SENTRY_TOKEN` | Coral Sentry source |
 | `SLACK_TOKEN` | Coral Slack reads (incident threads) |
 | `SLACK_BOT_TOKEN` / `SLACK_SIGNING_SECRET` | Notifications, approval gate, slash command verification |
+| `SLACK_INCIDENT_CHANNEL` | Channel for webhook reports and approval requests |
 | `VERCEL_TOKEN` / `VERCEL_TEAM_ID` | Coral Vercel source + rollback |
+| `FRONTEND_BASE_URL` | Report links in Slack messages |
 
 ### AI Models
 
@@ -237,7 +409,7 @@ All configuration lives in `backend/.env`. Start from `backend/.env.example`.
 |--------|----------|-------------|
 | `POST` | `/api/v1/triggers/dashboard` | Start an investigation from the UI |
 | `POST` | `/api/v1/triggers/slack` | Start from a Slack slash command |
-| `POST` | `/api/v1/webhooks/sentry` | Async investigation from a Sentry webhook |
+| `POST` | `/api/v1/webhooks/sentry` | Async investigation from a Sentry webhook (202 → Slack when done) |
 | `GET` | `/api/v1/investigations/{id}` | Poll status and live confidence |
 | `GET` | `/api/v1/investigations/{id}/report` | Retrieve the finalized report |
 | `POST` | `/api/v1/investigations/{id}/approve` | Approve remediation (`human_agent_paired` mode) |
@@ -264,7 +436,7 @@ Swagger UI at `http://127.0.0.1:8000/docs` · Postman collection (17 requests, f
 
 ## Integrating with Your Team
 
-**Sentry alerts → automatic investigations.** In Sentry → Settings → Developer Settings → Internal Integrations, point a webhook at `POST https://your-reef-host/api/v1/webhooks/sentry`. Every new issue kicks off an investigation automatically. Your on-call engineer gets a Slack message when the report is ready.
+**Sentry alerts → automatic investigations.** Point a Sentry internal-integration webhook at `POST https://your-reef-host/api/v1/webhooks/sentry`. Every new issue kicks off an investigation automatically. Your on-call engineer gets a Slack message when the report is ready. See [Sentry Webhook Integration](#sentry-webhook-integration) for setup details.
 
 **Slack slash command.** Configure `/reef` to POST to `https://your-reef-host/api/v1/triggers/slack`. Engineers trigger investigations from any channel with plain-language descriptions. The report posts back to the thread.
 
@@ -281,7 +453,7 @@ cd backend
 pytest -v
 ```
 
-25 tests covering health, query executor, severity gate, orchestrator loop, and trigger endpoints.
+25 tests covering health, query executor, severity gate, orchestrator loop, webhook endpoints, and trigger endpoints.
 
 ---
 
@@ -314,6 +486,24 @@ coral_hackers/
 
 ---
 
+## Learning and Growth
+
+Building Reef for the Coral hackathon pushed us beyond a simple chatbot wrapper into a real agent architecture.
+
+**Stateful loops, not one-shot prompts.** The hardest design choice was treating investigation as a loop with memory — each Coral query result is persisted, cited, and fed back to the planner. Confidence has to accumulate across iterations before Reef stops. That pattern (plan → act → observe → judge → repeat) maps directly to how engineers actually debug incidents.
+
+**Coral changed how we think about integrations.** Before Coral, cross-tool correlation meant writing four API clients, normalizing timestamps, and joining in application code. With Coral, the join lives in SQL — `github.pulls.merged_at <= sentry.issues.first_seen` — and credentials never leave the runtime. That let us focus engineering time on the orchestrator, severity gate, and human-in-the-loop remediation instead of brittle glue code.
+
+**Severity-gated autonomy.** Not every incident should auto-revert a PR. The weighted severity gate (confidence + blast radius + fatal level + ownership gaps) forces high-impact incidents through a Slack approval step while low-risk ones resolve without paging anyone.
+
+**What we would do next:**
+- Extend the LLM planner and judge with richer prompt context from prior investigations
+- Wire the full Slack approval flow (`/reef approve`) end-to-end
+- Harden multi-tenant org onboarding and per-org Coral config isolation
+- Add observability on loop iteration latency and Coral query failures
+
+---
+
 ## Built With
 
 - [Coral](https://withcoral.ai) — SQL over APIs, cross-source JOINs, local execution
@@ -328,4 +518,12 @@ coral_hackers/
 
 ## Hackathon
 
-Built for [Pirates of the Coral-bean](https://www.wemakedevs.org/hackathons/coral) — WeMakeDevs Coral Hackathon, Track 1: Enterprise Agent. May 25–31, 2026.
+Built for [Pirates of the Coral-bean](https://www.wemakedevs.org/hackathons/coral) — WeMakeDevs Coral Hackathon, **Track 1: Enterprise Agent**. May 25–31, 2026.
+
+| Criterion | How Reef addresses it |
+|-----------|----------------------|
+| Potential impact | Cuts multi-tool incident triage from hours to one workflow + report |
+| Creativity & originality | Severity-gated remediation (autonomous vs human-paired) |
+| Technical implementation | Stateful orchestrator loop + Coral SQL executor + evidence store |
+| Best use of Coral | Cross-source JOINs (GitHub + Sentry + Slack + Vercel) in every investigation |
+| Aesthetics & UX | Dashboard, Sentry webhook, Slack triggers, structured reports with citations |
